@@ -392,8 +392,15 @@
 <body>
     <div class="container">
         <header>
-            <h1>🔧 Panel Maestro iChat</h1>
-            <p>Gestión centralizada de canales, usuarios y mensajes</p>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1>🔧 Panel Maestro iChat</h1>
+                    <p>Gestión centralizada de canales, usuarios y mensajes</p>
+                </div>
+                <button class="btn btn-secondary" onclick="logout()" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3);">
+                    🚪 Salir
+                </button>
+            </div>
         </header>
 
         <!-- Estadísticas -->
@@ -492,6 +499,27 @@
         </div>
     </div>
 
+    <!-- Modal de autenticación -->
+    <div id="authModal" class="modal active">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">🔐 Acceso al Panel Maestro</h3>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Ingrese la clave de administrador:</label>
+                    <input type="password" class="form-input" id="adminPassword" placeholder="Clave de acceso" autofocus>
+                </div>
+                <div id="authError" style="color: #ff3b30; font-size: 14px; margin-top: 8px; display: none;">
+                    Clave incorrecta. Intente nuevamente.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="authenticate()">🔓 Acceder</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal de confirmación -->
     <div id="confirmModal" class="modal">
         <div class="modal-content">
@@ -536,13 +564,74 @@
         let messages = {};
         let logs = [];
         let currentEditingChannel = null;
+        let isAuthenticated = false;
+
+        // Clave de administrador
+        const ADMIN_PASSWORD = '170518';
 
         // Inicialización
         document.addEventListener('DOMContentLoaded', () => {
+            initializeAuth();
+        });
+
+        // Sistema de autenticación
+        function initializeAuth() {
+            // Verificar si ya está autenticado (sessionStorage)
+            const authStatus = sessionStorage.getItem('panelAuthenticated');
+            if (authStatus === 'true') {
+                isAuthenticated = true;
+                showMainInterface();
+                return;
+            }
+
+            // Configurar evento Enter en el campo de contraseña
+            document.getElementById('adminPassword').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    authenticate();
+                }
+            });
+
+            // Enfocar el campo de contraseña
+            document.getElementById('adminPassword').focus();
+        }
+
+        function authenticate() {
+            const password = document.getElementById('adminPassword').value.trim();
+            const errorDiv = document.getElementById('authError');
+
+            if (password === ADMIN_PASSWORD) {
+                isAuthenticated = true;
+                sessionStorage.setItem('panelAuthenticated', 'true');
+                closeAuthModal();
+                showMainInterface();
+            } else {
+                errorDiv.style.display = 'block';
+                document.getElementById('adminPassword').value = '';
+                document.getElementById('adminPassword').focus();
+                
+                // Ocultar error después de 3 segundos
+                setTimeout(() => {
+                    errorDiv.style.display = 'none';
+                }, 3000);
+            }
+        }
+
+        function closeAuthModal() {
+            document.getElementById('authModal').classList.remove('active');
+        }
+
+        function showMainInterface() {
+            // Inicializar la interfaz principal
             initializeTabs();
             initializeSearch();
             loadData();
-        });
+        }
+
+        function logout() {
+            isAuthenticated = false;
+            sessionStorage.removeItem('panelAuthenticated');
+            location.reload();
+        }
 
         // Sistema de pestañas
         function initializeTabs() {
@@ -580,6 +669,8 @@
 
         // Cargar todos los datos
         async function loadData() {
+            if (!isAuthenticated) return;
+            
             try {
                 await Promise.all([
                     loadChannels(),
@@ -840,18 +931,21 @@
 
         // Funciones de acción
         function refreshChannels() {
+            if (!isAuthenticated) return;
             loadChannels();
             updateStats();
             addLog('Canales actualizados');
         }
 
         function refreshUsers() {
+            if (!isAuthenticated) return;
             loadUsers();
             updateStats();
             addLog('Usuarios actualizados');
         }
 
         function refreshMessages() {
+            if (!isAuthenticated) return;
             loadMessages();
             updateStats();
             addLog('Mensajes actualizados');
@@ -873,7 +967,7 @@
         }
 
         async function savePin() {
-            if (!currentEditingChannel) return;
+            if (!isAuthenticated || !currentEditingChannel) return;
             
             const newPin = document.getElementById('newPinInput').value.trim();
             if (!newPin) {
@@ -895,6 +989,8 @@
         }
 
         async function toggleChannelLock(channelId) {
+            if (!isAuthenticated) return;
+            
             const channel = channels[channelId];
             const isLocked = (channel.chat_lock || {}).locked;
             
@@ -920,6 +1016,8 @@
         }
 
         function deleteChannel(channelId) {
+            if (!isAuthenticated) return;
+            
             showConfirm(
                 `¿Está seguro de eliminar el canal ${channelId.toUpperCase()}? Esta acción eliminará todos los mensajes y no se puede deshacer.`,
                 async () => {
@@ -940,6 +1038,8 @@
         }
 
         async function deleteMessage(channelId, messageId) {
+            if (!isAuthenticated) return;
+            
             showConfirm(
                 '¿Está seguro de eliminar este mensaje?',
                 async () => {
