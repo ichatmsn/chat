@@ -55,15 +55,13 @@
             text-align: center;
             background-color: #e5e5ea; /* Gris claro */
             border-bottom: 1px solid #d1d1d6; /* Borde sutil */
-            flex-shrink: 0; /* Evitar que se encoja */
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 10px;
             flex: 1 1 auto;
             max-height: 100%;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
+            overflow: hidden;
         }
 
         #name-prompt h2 {
@@ -193,6 +191,10 @@
             width: 100%;
             text-align: left;
             box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            flex: 1 1 auto;
+            min-height: 0;
         }
 
         .share-link-card {
@@ -1736,11 +1738,35 @@
         const database = firebase.database(); // Obtener la instancia de Realtime Database
 
         let userName = ''; // Variable para almacenar el nombre del usuario
-        // Verificar si un nombre ya fue usado en un canal (revisando mensajes existentes)
+        // Session ID único por dispositivo/navegador (persiste en localStorage)
+        let sessionId = localStorage.getItem('ichat_session_id');
+        if (!sessionId) {
+            sessionId = 'sid_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('ichat_session_id', sessionId);
+        }
+        // Verificar si un nombre ya fue usado por OTRA persona en un canal
         async function isNameTakenInChannel(name, channelId) {
             const msgRef = database.ref(`channels/${channelId}/messages`);
-            const snap = await msgRef.orderByChild('name').equalTo(name).limitToFirst(1).once('value');
-            return snap.exists();
+            const snap = await msgRef.orderByChild('name').equalTo(name).once('value');
+            if (!snap.exists()) return false; // Nombre libre
+            // Revisar si algún mensaje con ese nombre tiene un sid diferente al nuestro
+            let takenByOther = false;
+            snap.forEach(child => {
+                const msg = child.val();
+                if (msg.sid && msg.sid !== sessionId) {
+                    takenByOther = true;
+                }
+                // Mensajes antiguos sin sid se consideran del mismo usuario si el nombre coincide con localStorage
+                if (!msg.sid) {
+                    // Si no tiene sid, verificar si el localStorage tiene ese nombre guardado para ese canal
+                    const savedName = localStorage.getItem('chatName');
+                    const savedChannel = localStorage.getItem('chatChannel');
+                    if (!(savedName === name && savedChannel === channelId)) {
+                        takenByOther = true;
+                    }
+                }
+            });
+            return takenByOther;
         }
         let typingTimeout; // Para manejar el indicador de escribiendo
         let initialLoadComplete = false; // Bandera para saber si la carga inicial de mensajes ha terminado
@@ -1914,7 +1940,8 @@
                     name: userName,
                     text: messageText,
                     timestamp: firebase.database.ServerValue.TIMESTAMP, // Usar el timestamp del servidor de Firebase
-                    status: 'sent' // Estado inicial: enviado
+                    status: 'sent', // Estado inicial: enviado
+                    sid: sessionId
                 };
 
                 // Si estamos respondiendo a un mensaje, añadir la referencia
@@ -3475,7 +3502,8 @@
                 name: userName,
                 type: 'nudge',
                 timestamp: firebase.database.ServerValue.TIMESTAMP,
-                status: 'sent'
+                status: 'sent',
+                sid: sessionId
             });
             // Efecto local también
             triggerNudgeEffect();
@@ -3537,7 +3565,8 @@
                     type: 'image',
                     imageData: base64,
                     timestamp: Date.now(),
-                    status: 'sent'
+                    status: 'sent',
+                    sid: sessionId
                 };
                 if (replyingToMessage) {
                     newMessage.replyTo = { id: replyingToMessage.id, name: replyingToMessage.name, text: replyingToMessage.text };
@@ -3692,7 +3721,8 @@
                     type: 'video',
                     videoData: base64,
                     timestamp: Date.now(),
-                    status: 'sent'
+                    status: 'sent',
+                    sid: sessionId
                 };
                 if (replyingToMessage) {
                     newMessage.replyTo = { id: replyingToMessage.id, name: replyingToMessage.name, text: replyingToMessage.text };
@@ -3739,7 +3769,8 @@
                     docName: file.name,
                     docSize: file.size,
                     timestamp: Date.now(),
-                    status: 'sent'
+                    status: 'sent',
+                    sid: sessionId
                 };
                 if (replyingToMessage) {
                     newMessage.replyTo = { id: replyingToMessage.id, name: replyingToMessage.name, text: replyingToMessage.text };
@@ -3789,7 +3820,8 @@
                             type: 'audio',
                             audioData: base64,
                             timestamp: Date.now(),
-                            status: 'sent'
+                            status: 'sent',
+                            sid: sessionId
                         };
                         messagesRef.push(newMessage);
                     };
