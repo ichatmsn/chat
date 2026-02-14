@@ -621,10 +621,25 @@
         }
 
         function showMainInterface() {
+            // Verificar conexión a Firebase
+            console.log('🔍 Verificando conexión Firebase...');
+            console.log('📱 Database URL:', firebaseConfig.databaseURL);
+            console.log('🆔 Project ID:', firebaseConfig.projectId);
+            
+            // Probar conexión básica
+            const testRef = database.ref('.info/connected');
+            testRef.on('value', (snapshot) => {
+                console.log('🔌 Firebase conectado:', snapshot.val());
+            });
+            
             // Inicializar la interfaz principal
             initializeTabs();
             initializeSearch();
-            loadData();
+            
+            // Esperar un momento y cargar datos
+            setTimeout(() => {
+                loadData();
+            }, 1000);
         }
 
         function logout() {
@@ -687,10 +702,27 @@
 
         // Cargar canales
         async function loadChannels() {
-            const channelsRef = database.ref('channels');
-            const snapshot = await channelsRef.once('value');
-            channels = snapshot.val() || {};
-            renderChannels();
+            try {
+                console.log('🔍 Intentando cargar canales...');
+                const channelsRef = database.ref('channels');
+                console.log('📍 Referencia:', channelsRef.toString());
+                
+                const snapshot = await channelsRef.once('value');
+                console.log('📊 Snapshot recibido:', snapshot.exists());
+                
+                if (snapshot.exists()) {
+                    channels = snapshot.val();
+                    console.log('✅ Canales cargados:', Object.keys(channels));
+                } else {
+                    channels = {};
+                    console.log('⚠️ No hay canales');
+                }
+                
+                renderChannels();
+            } catch (error) {
+                console.error('❌ Error detallado en loadChannels:', error);
+                throw error;
+            }
         }
 
         // Renderizar canales
