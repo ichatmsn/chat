@@ -704,6 +704,12 @@
         async function loadChannels() {
             try {
                 console.log('🔍 Intentando cargar canales...');
+                
+                // Primero probar con .info para verificar conexión
+                const infoRef = database.ref('.info/serverTimeOffset');
+                const infoSnapshot = await infoRef.once('value');
+                console.log('⏰ Test de conexión básica OK:', infoSnapshot.val() !== null);
+                
                 const channelsRef = database.ref('channels');
                 console.log('📍 Referencia:', channelsRef.toString());
                 
@@ -721,6 +727,21 @@
                 renderChannels();
             } catch (error) {
                 console.error('❌ Error detallado en loadChannels:', error);
+                
+                // Intentar crear un canal de prueba para ver si es problema de permisos de escritura
+                try {
+                    console.log('🧪 Intentando escribir canal de prueba...');
+                    await database.ref('channels/test123').set({
+                        config: { pin: 'test' },
+                        messages: {},
+                        created: Date.now()
+                    });
+                    console.log('✅ Escritura OK - el problema es solo lectura');
+                } catch (writeError) {
+                    console.error('❌ Error de escritura también:', writeError);
+                    console.log('🚨 Las reglas de Firebase no permiten ninguna operación');
+                }
+                
                 throw error;
             }
         }
