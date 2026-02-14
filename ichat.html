@@ -2669,9 +2669,14 @@
                 .catch(err => console.error('Error al bloquear:', err));
         });
 
-        // Ayuda = desbloquear con clave
+        // Ayuda = desbloquear con PIN del canal
         document.getElementById('lock-help-btn').addEventListener('click', async () => {
-            const ok = await showPasswordModal('Ingresa la clave para desbloquear');
+            if (!activeChannel) return;
+            const channelConfigRef = database.ref(`channels/${activeChannel}/config`);
+            const snapshot = await channelConfigRef.once('value');
+            if (!snapshot.exists()) return;
+            const config = snapshot.val();
+            const ok = await showPasswordModal('Ingresa el PIN del canal para desbloquear', config.pin);
             if(ok){
                 chatLockRef.set({ locked: false })
                     .then(() => console.log('Chat desbloqueado globalmente'))
@@ -2679,9 +2684,14 @@
             }
         });
 
-        // Más opciones = borrar chat con clave
+        // Más opciones = borrar chat con PIN del canal
         document.getElementById('lock-more-btn').addEventListener('click', async () => {
-            const ok = await showPasswordModal('Ingresa la clave para borrar el chat');
+            if (!activeChannel) return;
+            const channelConfigRef = database.ref(`channels/${activeChannel}/config`);
+            const snapshot = await channelConfigRef.once('value');
+            if (!snapshot.exists()) return;
+            const config = snapshot.val();
+            const ok = await showPasswordModal('Ingresa el PIN del canal para borrar el chat', config.pin);
             if(ok){
                 try {
                     await messagesRef.remove();
@@ -2693,10 +2703,15 @@
         });
 
 
-        // --- Lógica para Limpiar Chat con Clave (Realtime Database) ---
+        // --- Lógica para Limpiar Chat con PIN del Canal ---
         clearChatButton.addEventListener('click', async () => {
             settingsDropdown.style.display = 'none';
-            const ok = await showPasswordModal('Ingresa la clave para limpiar el chat');
+            if (!activeChannel) return;
+            const channelConfigRef = database.ref(`channels/${activeChannel}/config`);
+            const snapshot = await channelConfigRef.once('value');
+            if (!snapshot.exists()) return;
+            const config = snapshot.val();
+            const ok = await showPasswordModal('Ingresa el PIN del canal para limpiar el chat', config.pin);
             if(ok){
                 messagesRef.remove()
                     .then(() => {
