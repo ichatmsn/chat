@@ -1465,8 +1465,8 @@
         .lock-btn.secondary { background-color: #e5e5ea; color: #1c1c1e; }
         .lock-btn.secondary:hover { background-color: #d1d1d6; }
 
-        /* Password / Prompt Modal */
-        #password-modal, #prompt-modal {
+        /* Password / Prompt / Confirm Modal */
+        #password-modal, #prompt-modal, #confirm-modal {
             display: none;
             position: fixed;
             inset: 0;
@@ -1476,7 +1476,7 @@
             justify-content: center;
             backdrop-filter: blur(4px);
         }
-        #password-modal.active, #prompt-modal.active { display: flex; }
+        #password-modal.active, #prompt-modal.active, #confirm-modal.active { display: flex; }
         .pw-modal-card {
             background: #fff;
             border-radius: 14px;
@@ -1487,6 +1487,7 @@
             text-align: center;
         }
         .pw-modal-card h3 { font-size: 1.2em; color: #1c1c1e; margin-bottom: 16px; }
+        #confirm-modal-message { margin: 0 0 16px 0; color: #3a3a3c; font-size: 0.95em; line-height: 1.45; }
         .pw-modal-card input {
             width: 100%; padding: 10px 14px; border: 1px solid #d1d1d6; border-radius: 8px;
             font-size: 1em; box-sizing: border-box; outline: none; margin-bottom: 8px;
@@ -1661,6 +1662,18 @@
             <div class="pw-modal-actions">
                 <button id="prompt-modal-cancel" class="lock-btn secondary">Cancelar</button>
                 <button id="prompt-modal-ok" class="lock-btn primary">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div id="confirm-modal">
+        <div class="pw-modal-card">
+            <h3 id="confirm-modal-title">Confirmar</h3>
+            <p id="confirm-modal-message"></p>
+            <div class="pw-modal-actions">
+                <button id="confirm-modal-cancel" class="lock-btn secondary">Cancelar</button>
+                <button id="confirm-modal-ok" class="lock-btn primary">Continuar</button>
             </div>
         </div>
     </div>
@@ -1852,7 +1865,13 @@
                 const ok = await showPasswordModal('Ingresa el PIN del canal ' + channelId, config.pin);
                 if (!ok) return false;
             } else {
-                // Canal nuevo, pedir crear PIN
+                // Canal nuevo, confirmar creación
+                const okCreate = await showConfirmModal(
+                    'Canal nuevo',
+                    `El canal ${channelId} no existe. Estás a punto de crear un canal nuevo. ¿Deseas continuar?`
+                );
+                if (!okCreate) return false;
+                // Pedir crear PIN
                 const pin = await showPromptModal('Crea un PIN para el canal ' + channelId, 'PIN (ej: 1234)');
                 if (!pin) return false;
                 await channelConfigRef.set({
@@ -2825,6 +2844,9 @@
         const promptModal = document.getElementById('prompt-modal');
         const promptInput = document.getElementById('prompt-modal-input');
         const promptTitle = document.getElementById('prompt-modal-title');
+        const confirmModal = document.getElementById('confirm-modal');
+        const confirmTitle = document.getElementById('confirm-modal-title');
+        const confirmMessage = document.getElementById('confirm-modal-message');
         const lockChatButton = document.getElementById('lock-chat-button');
 
         // Show a password modal and return a promise that resolves true/false
@@ -2870,6 +2892,19 @@
 
                 document.getElementById('prompt-modal-ok').onclick = () => { const v = promptInput.value.trim(); cleanup(); resolve(v || null); };
                 document.getElementById('prompt-modal-cancel').onclick = () => { cleanup(); resolve(null); };
+            });
+        }
+
+        // Show a confirm modal and return a promise that resolves true/false
+        function showConfirmModal(title, message){
+            return new Promise(resolve => {
+                confirmTitle.textContent = title || 'Confirmar';
+                confirmMessage.textContent = message || '¿Deseas continuar?';
+                confirmModal.classList.add('active');
+
+                function cleanup(){ confirmModal.classList.remove('active'); }
+                document.getElementById('confirm-modal-ok').onclick = () => { cleanup(); resolve(true); };
+                document.getElementById('confirm-modal-cancel').onclick = () => { cleanup(); resolve(false); };
             });
         }
 
