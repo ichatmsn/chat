@@ -369,6 +369,23 @@
             border: 1px solid #bee5eb;
         }
 
+        .pagination-controls {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border: 1px solid #dee2e6;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .pagination-controls button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .pagination-controls button:not(:disabled):hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 122, 255, 0.2);
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 12px;
@@ -385,6 +402,16 @@
 
             .channel-actions, .user-actions, .message-actions {
                 flex-wrap: wrap;
+            }
+
+            .pagination-controls {
+                flex-direction: column;
+                gap: 8px;
+                text-align: center;
+            }
+
+            .pagination-controls span {
+                font-size: 14px;
             }
         }
     </style>
@@ -457,7 +484,12 @@
         <div id="messages-tab" class="tab-content">
             <div class="card">
                 <div class="card-header">
-                    <h2 class="card-title">Mensajes Recientes</h2>
+                    <div>
+                        <h2 class="card-title">Mensajes Recientes</h2>
+                        <div id="messagesInfo" style="color: #8e8e93; font-size: 14px; margin-top: 4px;">
+                            Cargando información...
+                        </div>
+                    </div>
                     <button class="btn btn-primary" onclick="refreshMessages()">🔄 Actualizar</button>
                 </div>
                 <input type="text" class="search-box" id="messageSearch" placeholder="Buscar mensaje...">
@@ -687,15 +719,24 @@
             if (!isAuthenticated) return;
             
             try {
-                await Promise.all([
-                    loadChannels(),
-                    loadUsers(),
-                    loadMessages(),
-                    updateStats()
-                ]);
+                console.log('🚀 Iniciando carga de datos...');
+                
+                // Cargar secuencialmente para mejor debug
+                await loadChannels();
+                console.log('✅ Canales cargados');
+                
+                await loadUsers();
+                console.log('✅ Usuarios cargados');
+                
+                await loadMessages();
+                console.log('✅ Mensajes cargados');
+                
+                await updateStats();
+                console.log('✅ Estadísticas actualizadas');
+                
                 addLog('Panel maestro inicializado correctamente');
             } catch (error) {
-                console.error('Error al cargar datos:', error);
+                console.error('❌ Error al cargar datos:', error);
                 addLog('Error al cargar datos: ' + error.message, 'error');
             }
         }
@@ -810,29 +851,53 @@
 
         // Cargar usuarios
         async function loadUsers() {
-            const usersRef = database.ref('channels');
-            const snapshot = await usersRef.once('value');
-            const channelsData = snapshot.val() || {};
-            
-            users = {};
-            
-            // Recopilar usuarios de todos los canales
-            Object.entries(channelsData).forEach(([channelId, channelData]) => {
-                const presence = channelData.presence || {};
-                Object.entries(presence).forEach(([userName, userData]) => {
-                    if (!users[userName]) {
-                        users[userName] = {
-                            name: userName,
-                            channels: [],
-                            status: userData.online ? 'online' : 'offline',
-                            lastSeen: userData.lastSeen || null
-                        };
-                    }
-                    users[userName].channels.push(channelId);
+            try {
+                console.log('🔍 Cargando usuarios...');
+                const usersRef = database.ref('channels');
+                const snapshot = await usersRef.once('value');
+                const channelsData = snapshot.val() || {};
+                
+                console.log('📊 Canales encontrados:', Object.keys(channelsData));
+                
+                users = {};
+                let onlineCount = 0;
+                
+                // Recopilar usuarios de todos los canales
+                Object.entries(channelsData).forEach(([channelId, channelData]) => {
+                    const presence = channelData.presence || {};
+                    console.log(`📍 Canal ${channelId} - presence:`, presence);
+                    
+                    Object.entries(presence).forEach(([userName, userData]) => {
+                        console.log(`👤 Usuario ${userName}:`, userData);
+                        
+                        const isOnline = userData.online === true || userData.status === 'online';
+                        if (isOnline) onlineCount++;
+                        
+                        if (!users[userName]) {
+                            users[userName] = {
+                                name: userName,
+                                channels: [],
+                                status: isOnline ? 'online' : 'offline',
+                                lastSeen: userData.lastSeen || userData.timestamp || null
+                            };
+                        } else {
+                            // Si ya existe, actualizar estado si está online en algún canal
+                            if (isOnline) {
+                                users[userName].status = 'online';
+                            }
+                        }
+                        users[userName].channels.push(channelId);
+                    });
                 });
-            });
 
-            renderUsers();
+                console.log(`✅ Usuarios cargados: ${Object.keys(users).length} (${onlineCount} online)`);
+                console.log('👥 Lista de usuarios:', users);
+                
+                renderUsers();
+            } catch (error) {
+                console.error('❌ Error al cargar usuarios:', error);
+                throw error;
+            }
         }
 
         // Renderizar usuarios
@@ -888,6 +953,11 @@
             });
         }
 
+        // Variables de paginación
+        let currentPage = 1;
+        const messagesPerPage = 50;
+        let totalMessages = 0;
+
         // Cargar mensajes
         async function loadMessages() {
             const messagesRef = database.ref('channels');
@@ -911,7 +981,14 @@
             // Ordenar por timestamp (más recientes primero)
             messages.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
             
+            totalMessages = messages.length;
+            currentPage = 1; // Resetear a primera página
+            
+            // Actualizar información en el header
+            updateMessagesInfo();
+            
             renderMessages();
+            renderPagination();
         }
 
         // Renderizar mensajes
@@ -923,10 +1000,12 @@
                 return;
             }
 
-            // Limitar a los 50 mensajes más recientes
-            const recentMessages = messages.slice(0, 50);
+            // Calcular índices para paginación
+            const startIndex = (currentPage - 1) * messagesPerPage;
+            const endIndex = startIndex + messagesPerPage;
+            const pageMessages = messages.slice(startIndex, endIndex);
 
-            const html = recentMessages.map(message => {
+            const html = pageMessages.map(message => {
                 const time = new Date(message.timestamp).toLocaleString();
                 const channel = message.channel.toUpperCase();
                 const content = message.text || message.type || 'Mensaje sin texto';
@@ -952,6 +1031,62 @@
             container.innerHTML = html;
         }
 
+        // Renderizar controles de paginación
+        function renderPagination() {
+            const container = document.getElementById('messagesList');
+            const totalPages = Math.ceil(totalMessages / messagesPerPage);
+            
+            if (totalPages <= 1) return; // No mostrar paginación si hay solo una página
+            
+            const paginationHtml = `
+                <div class="pagination-controls" style="display: flex; justify-content: center; align-items: center; gap: 10px; margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                    <button class="btn btn-secondary btn-small" onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>
+                        ◀ Anterior
+                    </button>
+                    <span style="font-weight: 500; color: #1c1c1e;">
+                        Página ${currentPage} de ${totalPages} (${totalMessages} mensajes)
+                    </span>
+                    <button class="btn btn-secondary btn-small" onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>
+                        Siguiente ▶
+                    </button>
+                </div>
+            `;
+            
+            // Insertar controles de paginación al final del contenedor
+            container.insertAdjacentHTML('beforeend', paginationHtml);
+        }
+
+        // Actualizar información de mensajes
+        function updateMessagesInfo() {
+            const infoElement = document.getElementById('messagesInfo');
+            const totalPages = Math.ceil(totalMessages / messagesPerPage);
+            
+            if (totalMessages === 0) {
+                infoElement.textContent = 'No hay mensajes';
+            } else if (totalPages === 1) {
+                infoElement.textContent = `${totalMessages} mensajes totales`;
+            } else {
+                const startMsg = (currentPage - 1) * messagesPerPage + 1;
+                const endMsg = Math.min(currentPage * messagesPerPage, totalMessages);
+                infoElement.textContent = `${startMsg}-${endMsg} de ${totalMessages} mensajes (página ${currentPage} de ${totalPages})`;
+            }
+        }
+
+        // Cambiar página
+        function changePage(page) {
+            const totalPages = Math.ceil(totalMessages / messagesPerPage);
+            
+            if (page < 1 || page > totalPages) return;
+            
+            currentPage = page;
+            renderMessages();
+            renderPagination();
+            updateMessagesInfo();
+            
+            // Scroll al inicio de la lista de mensajes
+            document.getElementById('messagesList').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
         // Filtrar mensajes
         function filterMessages(searchTerm) {
             const items = document.querySelectorAll('.message-item');
@@ -975,6 +1110,14 @@
             const onlineUsers = Object.values(users).filter(u => u.status === 'online').length;
             const totalMessages = messages.length;
             const lockedChannels = Object.values(channels).filter(c => (c.chat_lock || {}).locked).length;
+
+            console.log('📈 Estadísticas actualizadas:', {
+                totalChannels,
+                onlineUsers,
+                totalMessages,
+                lockedChannels,
+                totalUsers: Object.keys(users).length
+            });
 
             document.getElementById('totalChannels').textContent = totalChannels;
             document.getElementById('onlineUsers').textContent = onlineUsers;
