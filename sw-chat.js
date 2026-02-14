@@ -1,6 +1,6 @@
-const CACHE_NAME = 'facba-chat-v2';
+const CACHE_NAME = 'ichat-v3';
 const URLS_TO_CACHE = [
-  './prueba.html',
+  './ichat.html',
   './manifest.json',
   'https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap',
   'https://www.gstatic.com/firebasejs/9.1.1/firebase-app-compat.js',
@@ -51,12 +51,12 @@ async function generateIcon(size) {
   ctx.lineTo(cx + size*0.06, cy + bh/2);
   ctx.fill();
 
-  // Texto "FC" dentro de la burbuja
+  // Texto "iC" dentro de la burbuja
   ctx.fillStyle = '#007aff';
   ctx.font = `bold ${size * 0.18}px sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('FC', cx, cy);
+  ctx.fillText('iC', cx, cy);
 
   const blob = await canvas.convertToBlob({ type: 'image/png' });
   return new Response(blob, {
@@ -89,13 +89,13 @@ self.addEventListener('notificationclick', event => {
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
       // Si ya hay una ventana abierta, enfocarla
       for (const client of clientList) {
-        if (client.url.includes('prueba.html') && 'focus' in client) {
+        if (client.url.includes('ichat.html') && 'focus' in client) {
           return client.focus();
         }
       }
       // Si no, abrir una nueva
       if (clients.openWindow) {
-        return clients.openWindow('./prueba.html');
+        return clients.openWindow('./ichat.html');
       }
     })
   );
