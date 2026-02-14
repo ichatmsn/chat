@@ -3470,68 +3470,74 @@
             if (navigator.vibrate) {
                 navigator.vibrate([100, 50, 100, 50, 150]);
             }
-            // Sonido polifónico de zumbido estilo MSN Messenger
+            // Sonido moderno de zumbido 2026 — punchy, limpio, impactante
             try {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
                 const t = ctx.currentTime;
+
+                // Master output
                 const master = ctx.createGain();
-                master.gain.setValueAtTime(0.18, t);
-                master.gain.linearRampToValueAtTime(0.22, t + 0.05);
-                master.gain.linearRampToValueAtTime(0.18, t + 0.3);
-                master.gain.exponentialRampToValueAtTime(0.001, t + 0.7);
+                master.gain.setValueAtTime(0.25, t);
                 master.connect(ctx.destination);
 
-                // Capa 1: tono bajo pulsante (buzz base)
-                const osc1 = ctx.createOscillator();
-                const g1 = ctx.createGain();
-                osc1.type = 'sawtooth';
-                osc1.frequency.setValueAtTime(180, t);
-                osc1.frequency.setValueAtTime(200, t + 0.1);
-                osc1.frequency.setValueAtTime(170, t + 0.2);
-                osc1.frequency.setValueAtTime(190, t + 0.35);
-                osc1.frequency.setValueAtTime(160, t + 0.5);
-                g1.gain.setValueAtTime(0.35, t);
-                osc1.connect(g1); g1.connect(master);
-                osc1.start(t); osc1.stop(t + 0.65);
+                // Hit 1: golpe sub-bass (impacto inicial)
+                const sub = ctx.createOscillator();
+                const subG = ctx.createGain();
+                sub.type = 'sine';
+                sub.frequency.setValueAtTime(120, t);
+                sub.frequency.exponentialRampToValueAtTime(40, t + 0.15);
+                subG.gain.setValueAtTime(0.5, t);
+                subG.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+                sub.connect(subG); subG.connect(master);
+                sub.start(t); sub.stop(t + 0.2);
 
-                // Capa 2: tono medio (timbre de teléfono retro)
-                const osc2 = ctx.createOscillator();
-                const g2 = ctx.createGain();
-                osc2.type = 'square';
-                osc2.frequency.setValueAtTime(440, t);
-                osc2.frequency.setValueAtTime(480, t + 0.08);
-                osc2.frequency.setValueAtTime(420, t + 0.16);
-                osc2.frequency.setValueAtTime(460, t + 0.24);
-                osc2.frequency.setValueAtTime(400, t + 0.35);
-                osc2.frequency.setValueAtTime(450, t + 0.45);
-                g2.gain.setValueAtTime(0.2, t);
-                osc2.connect(g2); g2.connect(master);
-                osc2.start(t); osc2.stop(t + 0.65);
+                // Hit 2: tono principal — doble ping ascendente (moderno)
+                const ping1 = ctx.createOscillator();
+                const pingG1 = ctx.createGain();
+                ping1.type = 'sine';
+                ping1.frequency.setValueAtTime(587, t + 0.02); // D5
+                ping1.frequency.setValueAtTime(784, t + 0.12); // G5
+                pingG1.gain.setValueAtTime(0, t);
+                pingG1.gain.linearRampToValueAtTime(0.35, t + 0.03);
+                pingG1.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+                ping1.connect(pingG1); pingG1.connect(master);
+                ping1.start(t + 0.02); ping1.stop(t + 0.35);
 
-                // Capa 3: tono agudo (brillo polifónico)
-                const osc3 = ctx.createOscillator();
-                const g3 = ctx.createGain();
-                osc3.type = 'triangle';
-                osc3.frequency.setValueAtTime(880, t);
-                osc3.frequency.setValueAtTime(920, t + 0.1);
-                osc3.frequency.setValueAtTime(850, t + 0.2);
-                osc3.frequency.setValueAtTime(900, t + 0.35);
-                g3.gain.setValueAtTime(0.12, t);
-                g3.gain.exponentialRampToValueAtTime(0.01, t + 0.5);
-                osc3.connect(g3); g3.connect(master);
-                osc3.start(t); osc3.stop(t + 0.55);
+                // Hit 3: segundo ping más agudo (eco corto)
+                const ping2 = ctx.createOscillator();
+                const pingG2 = ctx.createGain();
+                ping2.type = 'sine';
+                ping2.frequency.setValueAtTime(1047, t + 0.1); // C6
+                pingG2.gain.setValueAtTime(0, t + 0.1);
+                pingG2.gain.linearRampToValueAtTime(0.2, t + 0.12);
+                pingG2.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+                ping2.connect(pingG2); pingG2.connect(master);
+                ping2.start(t + 0.1); ping2.stop(t + 0.4);
 
-                // Capa 4: vibrato rápido (efecto ring modulation clásico)
-                const lfo = ctx.createOscillator();
-                const lfoGain = ctx.createGain();
-                lfo.type = 'sine';
-                lfo.frequency.setValueAtTime(30, t);
-                lfoGain.gain.setValueAtTime(0.08, t);
-                lfo.connect(lfoGain); lfoGain.connect(master.gain);
-                lfo.start(t); lfo.stop(t + 0.65);
+                // Hit 4: click/snap transiente (textura digital)
+                const noise = ctx.createBufferSource();
+                const noiseLen = ctx.sampleRate * 0.03;
+                const noiseBuf = ctx.createBuffer(1, noiseLen, ctx.sampleRate);
+                const noiseData = noiseBuf.getChannelData(0);
+                for (let i = 0; i < noiseLen; i++) noiseData[i] = (Math.random() * 2 - 1) * (1 - i / noiseLen);
+                noise.buffer = noiseBuf;
+                const noiseG = ctx.createGain();
+                noiseG.gain.setValueAtTime(0.15, t);
+                noise.connect(noiseG); noiseG.connect(master);
+                noise.start(t);
 
-                // Cerrar contexto después
-                setTimeout(() => ctx.close(), 1000);
+                // Hit 5: tercer tono — acorde final breve (riqueza)
+                const chord = ctx.createOscillator();
+                const chordG = ctx.createGain();
+                chord.type = 'triangle';
+                chord.frequency.setValueAtTime(392, t + 0.15); // G4
+                chordG.gain.setValueAtTime(0, t + 0.15);
+                chordG.gain.linearRampToValueAtTime(0.12, t + 0.18);
+                chordG.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+                chord.connect(chordG); chordG.connect(master);
+                chord.start(t + 0.15); chord.stop(t + 0.45);
+
+                setTimeout(() => ctx.close(), 800);
             } catch(e) { console.warn('No se pudo reproducir sonido de zumbido:', e); }
         }
 
@@ -4194,87 +4200,125 @@
             if (navigator.vibrate) navigator.vibrate(0); // Detener vibración
         }
 
-        // Voltear cámara (front/back) — Android-compatible
+        // Voltear cámara (front/back) — Android-compatible (v3)
+        let cachedVideoDevices = [];
+        let currentCameraIndex = 0;
+
         flipCameraBtn.addEventListener('click', async () => {
             if (!localStream || !peerConnection) return;
+            flipCameraBtn.disabled = true;
             const prevFacing = currentFacingMode;
             currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
             console.log('🔄 Flip cámara → ', currentFacingMode);
 
-            // 1. Obtener info del track actual ANTES de pararlo
-            const oldVideoTrack = localStream.getVideoTracks()[0];
-            const oldDeviceId = oldVideoTrack ? oldVideoTrack.getSettings().deviceId : '';
-            console.log('📹 Track actual deviceId:', oldDeviceId);
-
-            // 2. Enumerar dispositivos ANTES de parar (para tener labels)
-            let videoDevices = [];
+            // 1. Enumerar y cachear dispositivos (con track activo para tener labels)
             try {
                 const devices = await navigator.mediaDevices.enumerateDevices();
-                videoDevices = devices.filter(d => d.kind === 'videoinput');
-                console.log('📹 Cámaras disponibles:', videoDevices.map(d => ({ id: d.deviceId, label: d.label })));
-            } catch(e) { console.warn('No se pudo enumerar dispositivos:', e); }
+                cachedVideoDevices = devices.filter(d => d.kind === 'videoinput');
+                console.log('📹 Cámaras:', cachedVideoDevices.map((d, i) => `[${i}] ${d.label || 'cam'+i} id:${d.deviceId.substr(0,8)}`));
+            } catch(e) { console.warn('Enum falló:', e); }
 
-            // 3. PARAR el track de video viejo (liberar hardware — CLAVE en Android)
+            // 2. Guardar referencia al sender de video ANTES de parar (track puede quedar null)
+            const videoSender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video')
+                             || peerConnection.getSenders().find(s => !s.track || s.track.kind === 'video');
+
+            // 3. PARAR track viejo (liberar hardware — obligatorio en Android)
+            const oldVideoTrack = localStream.getVideoTracks()[0];
             if (oldVideoTrack) {
                 oldVideoTrack.stop();
                 localStream.removeTrack(oldVideoTrack);
-                console.log('⏹️ Track viejo detenido y removido');
+                console.log('⏹️ Track viejo detenido');
             }
 
-            // 4. Obtener nueva cámara
+            // 4. Esperar a que Android libere el hardware de cámara
+            await new Promise(r => setTimeout(r, 300));
+
+            // 5. Intentar obtener la otra cámara con múltiples estrategias
             let newStream = null;
-            try {
-                if (videoDevices.length > 1) {
-                    // Estrategia principal: cambiar por deviceId
-                    const otherDevice = videoDevices.find(d => d.deviceId !== oldDeviceId);
-                    if (otherDevice) {
-                        console.log('📹 Intentando deviceId:', otherDevice.deviceId, otherDevice.label);
-                        newStream = await navigator.mediaDevices.getUserMedia({
-                            audio: false,
-                            video: { deviceId: { exact: otherDevice.deviceId } }
-                        });
-                        console.log('✅ Cambio por deviceId exitoso');
-                    }
-                }
-                // Fallback: facingMode sin exact (más compatible)
-                if (!newStream) {
-                    console.log('📹 Fallback: facingMode =', currentFacingMode);
+            const nextIndex = (currentCameraIndex + 1) % Math.max(cachedVideoDevices.length, 2);
+
+            // Estrategia A: deviceId del siguiente dispositivo en la lista
+            if (!newStream && cachedVideoDevices.length > 1) {
+                try {
+                    const targetDevice = cachedVideoDevices[nextIndex];
+                    console.log('📹 [A] deviceId:', targetDevice.deviceId.substr(0,8), targetDevice.label);
                     newStream = await navigator.mediaDevices.getUserMedia({
-                        audio: false,
-                        video: { facingMode: currentFacingMode }
+                        audio: false, video: { deviceId: { exact: targetDevice.deviceId } }
                     });
-                    console.log('✅ Cambio por facingMode exitoso');
-                }
-            } catch (err) {
-                console.error('❌ Error al obtener nueva cámara:', err);
-                // Intentar recuperar la cámara anterior
+                    currentCameraIndex = nextIndex;
+                    console.log('✅ [A] deviceId funcionó');
+                } catch(e) { console.warn('⚠️ [A] deviceId falló:', e.name); newStream = null; }
+            }
+
+            // Estrategia B: facingMode con exact
+            if (!newStream) {
+                try {
+                    console.log('📹 [B] facingMode exact:', currentFacingMode);
+                    newStream = await navigator.mediaDevices.getUserMedia({
+                        audio: false, video: { facingMode: { exact: currentFacingMode } }
+                    });
+                    console.log('✅ [B] facingMode exact funcionó');
+                } catch(e) { console.warn('⚠️ [B] facingMode exact falló:', e.name); newStream = null; }
+            }
+
+            // Estrategia C: re-enumerar después de liberar y probar cada cámara
+            if (!newStream && cachedVideoDevices.length > 1) {
+                try {
+                    const freshDevices = await navigator.mediaDevices.enumerateDevices();
+                    const freshVideo = freshDevices.filter(d => d.kind === 'videoinput');
+                    for (let i = 0; i < freshVideo.length; i++) {
+                        if (i === currentCameraIndex) continue;
+                        try {
+                            console.log('📹 [C] Probando cámara', i, freshVideo[i].deviceId.substr(0,8));
+                            newStream = await navigator.mediaDevices.getUserMedia({
+                                audio: false, video: { deviceId: { exact: freshVideo[i].deviceId } }
+                            });
+                            currentCameraIndex = i;
+                            console.log('✅ [C] Cámara', i, 'funcionó');
+                            break;
+                        } catch(e) { newStream = null; }
+                    }
+                } catch(e) { console.warn('⚠️ [C] Re-enum falló:', e); }
+            }
+
+            // Estrategia D: facingMode sin exact (último recurso)
+            if (!newStream) {
+                try {
+                    console.log('📹 [D] facingMode sin exact:', currentFacingMode);
+                    newStream = await navigator.mediaDevices.getUserMedia({
+                        audio: false, video: { facingMode: currentFacingMode }
+                    });
+                    console.log('✅ [D] facingMode sin exact funcionó');
+                } catch(e) { console.warn('⚠️ [D] Falló:', e.name); }
+            }
+
+            // Si todo falló, recuperar la cámara anterior
+            if (!newStream) {
+                console.error('❌ No se pudo cambiar cámara, recuperando anterior');
+                currentFacingMode = prevFacing;
                 try {
                     newStream = await navigator.mediaDevices.getUserMedia({
-                        audio: false,
-                        video: oldDeviceId ? { deviceId: { exact: oldDeviceId } } : { facingMode: prevFacing }
+                        audio: false, video: { facingMode: prevFacing }
                     });
-                } catch(e2) {
-                    console.error('❌ No se pudo recuperar cámara anterior:', e2);
-                }
-                currentFacingMode = prevFacing;
-                if (!newStream) return;
+                } catch(e) { console.error('❌ No se pudo recuperar cámara:', e); }
+                if (!newStream) { flipCameraBtn.disabled = false; return; }
             }
 
-            // 5. Aplicar nuevo track al peer connection y al stream local
+            // 6. Aplicar nuevo track
             try {
                 const newVideoTrack = newStream.getVideoTracks()[0];
-                const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
-                if (sender) {
-                    await sender.replaceTrack(newVideoTrack);
+                if (videoSender) {
+                    await videoSender.replaceTrack(newVideoTrack);
                 }
                 localStream.addTrack(newVideoTrack);
                 localVideo.srcObject = null;
                 localVideo.srcObject = localStream;
-                console.log('✅ Nueva cámara aplicada correctamente');
+                console.log('✅ Nueva cámara aplicada — deviceId:', newVideoTrack.getSettings().deviceId?.substr(0,8));
             } catch (err) {
                 console.error('Error al aplicar nueva cámara:', err);
                 currentFacingMode = prevFacing;
             }
+            flipCameraBtn.disabled = false;
         });
 
         endCallBtn.addEventListener('click', () => endCall(true));
