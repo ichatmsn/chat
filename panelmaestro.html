@@ -870,7 +870,19 @@
                     Object.entries(presence).forEach(([userName, userData]) => {
                         console.log(`👤 Usuario ${userName}:`, userData);
                         
-                        const isOnline = userData.online === true || userData.status === 'online';
+                        // CORRECCIÓN: userData puede ser true (online) o un objeto con propiedades
+                        let isOnline = false;
+                        let lastSeen = null;
+                        
+                        if (userData === true) {
+                            // Caso: {Jhoan Parra: true} - está online
+                            isOnline = true;
+                        } else if (typeof userData === 'object' && userData !== null) {
+                            // Caso: {Jhoan Parra: {online: true, lastSeen: 123}}
+                            isOnline = userData.online === true || userData.status === 'online';
+                            lastSeen = userData.lastSeen || userData.timestamp || null;
+                        }
+                        
                         if (isOnline) onlineCount++;
                         
                         if (!users[userName]) {
@@ -878,7 +890,7 @@
                                 name: userName,
                                 channels: [],
                                 status: isOnline ? 'online' : 'offline',
-                                lastSeen: userData.lastSeen || userData.timestamp || null
+                                lastSeen: lastSeen
                             };
                         } else {
                             // Si ya existe, actualizar estado si está online en algún canal
