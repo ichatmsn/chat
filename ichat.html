@@ -3470,22 +3470,68 @@
             if (navigator.vibrate) {
                 navigator.vibrate([100, 50, 100, 50, 150]);
             }
-            // Sonido de zumbido (generado con AudioContext)
+            // Sonido polifónico de zumbido estilo MSN Messenger
             try {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(440, ctx.currentTime);
-                osc.frequency.setValueAtTime(520, ctx.currentTime + 0.08);
-                osc.frequency.setValueAtTime(380, ctx.currentTime + 0.16);
-                osc.frequency.setValueAtTime(480, ctx.currentTime + 0.24);
-                gain.gain.setValueAtTime(0.15, ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
-                osc.start(ctx.currentTime);
-                osc.stop(ctx.currentTime + 0.35);
+                const t = ctx.currentTime;
+                const master = ctx.createGain();
+                master.gain.setValueAtTime(0.18, t);
+                master.gain.linearRampToValueAtTime(0.22, t + 0.05);
+                master.gain.linearRampToValueAtTime(0.18, t + 0.3);
+                master.gain.exponentialRampToValueAtTime(0.001, t + 0.7);
+                master.connect(ctx.destination);
+
+                // Capa 1: tono bajo pulsante (buzz base)
+                const osc1 = ctx.createOscillator();
+                const g1 = ctx.createGain();
+                osc1.type = 'sawtooth';
+                osc1.frequency.setValueAtTime(180, t);
+                osc1.frequency.setValueAtTime(200, t + 0.1);
+                osc1.frequency.setValueAtTime(170, t + 0.2);
+                osc1.frequency.setValueAtTime(190, t + 0.35);
+                osc1.frequency.setValueAtTime(160, t + 0.5);
+                g1.gain.setValueAtTime(0.35, t);
+                osc1.connect(g1); g1.connect(master);
+                osc1.start(t); osc1.stop(t + 0.65);
+
+                // Capa 2: tono medio (timbre de teléfono retro)
+                const osc2 = ctx.createOscillator();
+                const g2 = ctx.createGain();
+                osc2.type = 'square';
+                osc2.frequency.setValueAtTime(440, t);
+                osc2.frequency.setValueAtTime(480, t + 0.08);
+                osc2.frequency.setValueAtTime(420, t + 0.16);
+                osc2.frequency.setValueAtTime(460, t + 0.24);
+                osc2.frequency.setValueAtTime(400, t + 0.35);
+                osc2.frequency.setValueAtTime(450, t + 0.45);
+                g2.gain.setValueAtTime(0.2, t);
+                osc2.connect(g2); g2.connect(master);
+                osc2.start(t); osc2.stop(t + 0.65);
+
+                // Capa 3: tono agudo (brillo polifónico)
+                const osc3 = ctx.createOscillator();
+                const g3 = ctx.createGain();
+                osc3.type = 'triangle';
+                osc3.frequency.setValueAtTime(880, t);
+                osc3.frequency.setValueAtTime(920, t + 0.1);
+                osc3.frequency.setValueAtTime(850, t + 0.2);
+                osc3.frequency.setValueAtTime(900, t + 0.35);
+                g3.gain.setValueAtTime(0.12, t);
+                g3.gain.exponentialRampToValueAtTime(0.01, t + 0.5);
+                osc3.connect(g3); g3.connect(master);
+                osc3.start(t); osc3.stop(t + 0.55);
+
+                // Capa 4: vibrato rápido (efecto ring modulation clásico)
+                const lfo = ctx.createOscillator();
+                const lfoGain = ctx.createGain();
+                lfo.type = 'sine';
+                lfo.frequency.setValueAtTime(30, t);
+                lfoGain.gain.setValueAtTime(0.08, t);
+                lfo.connect(lfoGain); lfoGain.connect(master.gain);
+                lfo.start(t); lfo.stop(t + 0.65);
+
+                // Cerrar contexto después
+                setTimeout(() => ctx.close(), 1000);
             } catch(e) { console.warn('No se pudo reproducir sonido de zumbido:', e); }
         }
 
@@ -4148,66 +4194,83 @@
             if (navigator.vibrate) navigator.vibrate(0); // Detener vibración
         }
 
-        // Voltear cámara (front/back)
+        // Voltear cámara (front/back) — Android-compatible
         flipCameraBtn.addEventListener('click', async () => {
             if (!localStream || !peerConnection) return;
             const prevFacing = currentFacingMode;
             currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
-            console.log('Intentando cambiar cámara a:', currentFacingMode);
+            console.log('🔄 Flip cámara → ', currentFacingMode);
+
+            // 1. Obtener info del track actual ANTES de pararlo
+            const oldVideoTrack = localStream.getVideoTracks()[0];
+            const oldDeviceId = oldVideoTrack ? oldVideoTrack.getSettings().deviceId : '';
+            console.log('📹 Track actual deviceId:', oldDeviceId);
+
+            // 2. Enumerar dispositivos ANTES de parar (para tener labels)
+            let videoDevices = [];
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                videoDevices = devices.filter(d => d.kind === 'videoinput');
+                console.log('📹 Cámaras disponibles:', videoDevices.map(d => ({ id: d.deviceId, label: d.label })));
+            } catch(e) { console.warn('No se pudo enumerar dispositivos:', e); }
+
+            // 3. PARAR el track de video viejo (liberar hardware — CLAVE en Android)
+            if (oldVideoTrack) {
+                oldVideoTrack.stop();
+                localStream.removeTrack(oldVideoTrack);
+                console.log('⏹️ Track viejo detenido y removido');
+            }
+
+            // 4. Obtener nueva cámara
             let newStream = null;
             try {
-                // Intentar con exact para forzar el cambio de cámara
-                newStream = await navigator.mediaDevices.getUserMedia({
-                    audio: false,
-                    video: { facingMode: { exact: currentFacingMode } }
-                });
-                console.log('✅ exact facingMode funcionó');
-            } catch (e1) {
-                console.warn('⚠️ exact facingMode falló, intentando deviceId:', e1);
-                // Fallback: enumerar dispositivos y elegir otra cámara
-                try {
-                    const devices = await navigator.mediaDevices.enumerateDevices();
-                    const videoDevices = devices.filter(d => d.kind === 'videoinput');
-                    console.log('📹 Dispositivos de video:', videoDevices.map(d => ({ id: d.deviceId, label: d.label })));
-                    if (videoDevices.length > 1) {
-                        const currentTrack = localStream.getVideoTracks()[0];
-                        const currentDeviceId = currentTrack ? currentTrack.getSettings().deviceId : '';
-                        console.log('📹 DeviceId actual:', currentDeviceId);
-                        const otherDevice = videoDevices.find(d => d.deviceId !== currentDeviceId) || videoDevices[1];
-                        console.log('📹 Intentando deviceId:', otherDevice.deviceId);
+                if (videoDevices.length > 1) {
+                    // Estrategia principal: cambiar por deviceId
+                    const otherDevice = videoDevices.find(d => d.deviceId !== oldDeviceId);
+                    if (otherDevice) {
+                        console.log('📹 Intentando deviceId:', otherDevice.deviceId, otherDevice.label);
                         newStream = await navigator.mediaDevices.getUserMedia({
                             audio: false,
                             video: { deviceId: { exact: otherDevice.deviceId } }
                         });
-                        console.log('✅ deviceId exact funcionó');
-                    } else {
-                        console.warn('⚠️ Solo hay una cámara, intentando facingMode sin exact');
-                        // Sin exact como último recurso
-                        newStream = await navigator.mediaDevices.getUserMedia({
-                            audio: false,
-                            video: { facingMode: currentFacingMode }
-                        });
-                        console.log('✅ facingMode sin exact funcionó');
+                        console.log('✅ Cambio por deviceId exitoso');
                     }
-                } catch (e2) {
-                    console.error('❌ Error al voltear cámara:', e2);
-                    currentFacingMode = prevFacing;
-                    return;
                 }
+                // Fallback: facingMode sin exact (más compatible)
+                if (!newStream) {
+                    console.log('📹 Fallback: facingMode =', currentFacingMode);
+                    newStream = await navigator.mediaDevices.getUserMedia({
+                        audio: false,
+                        video: { facingMode: currentFacingMode }
+                    });
+                    console.log('✅ Cambio por facingMode exitoso');
+                }
+            } catch (err) {
+                console.error('❌ Error al obtener nueva cámara:', err);
+                // Intentar recuperar la cámara anterior
+                try {
+                    newStream = await navigator.mediaDevices.getUserMedia({
+                        audio: false,
+                        video: oldDeviceId ? { deviceId: { exact: oldDeviceId } } : { facingMode: prevFacing }
+                    });
+                } catch(e2) {
+                    console.error('❌ No se pudo recuperar cámara anterior:', e2);
+                }
+                currentFacingMode = prevFacing;
+                if (!newStream) return;
             }
+
+            // 5. Aplicar nuevo track al peer connection y al stream local
             try {
                 const newVideoTrack = newStream.getVideoTracks()[0];
-                // Reemplazar track en el peer connection
                 const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
                 if (sender) {
                     await sender.replaceTrack(newVideoTrack);
                 }
-                // Reemplazar track en el stream local
-                const oldVideoTrack = localStream.getVideoTracks()[0];
-                if (oldVideoTrack) oldVideoTrack.stop();
-                localStream.removeTrack(oldVideoTrack);
                 localStream.addTrack(newVideoTrack);
+                localVideo.srcObject = null;
                 localVideo.srcObject = localStream;
+                console.log('✅ Nueva cámara aplicada correctamente');
             } catch (err) {
                 console.error('Error al aplicar nueva cámara:', err);
                 currentFacingMode = prevFacing;
