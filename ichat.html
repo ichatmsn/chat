@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>FACBA Chat</title>
+    <title>iChat</title>
     <meta name="theme-color" content="#007aff">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1359,7 +1359,7 @@
         <div id="chat-interface">
             <div id="chat-header">
                  <div>
-                     <h2 id="chat-title">FACBA</h2>
+                     <h2 id="chat-title">iChat</h2>
                      <div id="online-users"></div> </div>
                  <div class="header-actions">
                      <button id="voice-call-button" class="call-btn" title="Llamada de voz">📞</button>
@@ -1477,7 +1477,7 @@
     <div class="ios-install-backdrop" id="ios-install-backdrop"></div>
     <div class="ios-install-banner" id="ios-install-banner">
         <div class="ios-banner-header">
-            <h3>Instalar FACBA Chat</h3>
+            <h3>Instalar iChat</h3>
             <button class="ios-banner-close" id="ios-banner-close">✕</button>
         </div>
         <ul class="ios-banner-steps">
@@ -2530,10 +2530,10 @@
             // Intentar vía Service Worker (funciona en WebView/APK)
             if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
                 navigator.serviceWorker.ready.then(reg => {
-                    reg.showNotification('FACBA Chat', {
+                    reg.showNotification('iChat', {
                         body: `${senderName}: ${messageText}`,
                         icon: './icon-192.png',
-                        tag: 'facba-chat-msg',
+                        tag: 'ichat-msg',
                         renotify: true,
                         vibrate: [200, 100, 200]
                     });
@@ -2541,10 +2541,10 @@
             } else {
                 // Fallback: Notification API directa
                 try {
-                    const notif = new Notification('FACBA Chat', {
+                    const notif = new Notification('iChat', {
                         body: `${senderName}: ${messageText}`,
                         icon: './icon-192.png',
-                        tag: 'facba-chat-msg',
+                        tag: 'ichat-msg',
                         renotify: true
                     });
                     notif.onclick = () => { window.focus(); notif.close(); };
@@ -3269,9 +3269,9 @@
             if (!file) return;
             videoInput.value = '';
 
-            // Límite de 8MB original (se comprimirá a ~4MB)
-            if (file.size > 8 * 1024 * 1024) {
-                alert('El video es muy grande. Máximo 8 MB.');
+            // Límite de 50MB (se comprimirá automáticamente a ~4MB)
+            if (file.size > 50 * 1024 * 1024) {
+                alert('El video es muy grande. Máximo 50 MB.');
                 return;
             }
 
@@ -3701,12 +3701,42 @@
         // Voltear cámara (front/back)
         flipCameraBtn.addEventListener('click', async () => {
             if (!localStream || !peerConnection) return;
+            const prevFacing = currentFacingMode;
+            currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+            let newStream = null;
             try {
-                currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
-                const newStream = await navigator.mediaDevices.getUserMedia({
+                // Intentar con exact para forzar el cambio de cámara
+                newStream = await navigator.mediaDevices.getUserMedia({
                     audio: false,
-                    video: { facingMode: currentFacingMode }
+                    video: { facingMode: { exact: currentFacingMode } }
                 });
+            } catch (e1) {
+                // Fallback: enumerar dispositivos y elegir otra cámara
+                try {
+                    const devices = await navigator.mediaDevices.enumerateDevices();
+                    const videoDevices = devices.filter(d => d.kind === 'videoinput');
+                    if (videoDevices.length > 1) {
+                        const currentTrack = localStream.getVideoTracks()[0];
+                        const currentDeviceId = currentTrack ? currentTrack.getSettings().deviceId : '';
+                        const otherDevice = videoDevices.find(d => d.deviceId !== currentDeviceId) || videoDevices[1];
+                        newStream = await navigator.mediaDevices.getUserMedia({
+                            audio: false,
+                            video: { deviceId: { exact: otherDevice.deviceId } }
+                        });
+                    } else {
+                        // Sin exact como último recurso
+                        newStream = await navigator.mediaDevices.getUserMedia({
+                            audio: false,
+                            video: { facingMode: currentFacingMode }
+                        });
+                    }
+                } catch (e2) {
+                    console.error('Error al voltear cámara:', e2);
+                    currentFacingMode = prevFacing;
+                    return;
+                }
+            }
+            try {
                 const newVideoTrack = newStream.getVideoTracks()[0];
                 // Reemplazar track en el peer connection
                 const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
@@ -3720,8 +3750,8 @@
                 localStream.addTrack(newVideoTrack);
                 localVideo.srcObject = localStream;
             } catch (err) {
-                console.error('Error al voltear cámara:', err);
-                currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+                console.error('Error al aplicar nueva cámara:', err);
+                currentFacingMode = prevFacing;
             }
         });
 
