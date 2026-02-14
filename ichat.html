@@ -93,6 +93,162 @@
             background-color: #0056b3; /* Azul más oscuro */
         }
 
+        /* Zumbido / Nudge (MSN style) */
+        @keyframes nudge-shake {
+            0% { transform: translate(0,0); }
+            5% { transform: translate(-8px, -6px); }
+            10% { transform: translate(8px, 4px); }
+            15% { transform: translate(-6px, 6px); }
+            20% { transform: translate(6px, -4px); }
+            25% { transform: translate(-4px, 4px); }
+            30% { transform: translate(4px, -2px); }
+            35% { transform: translate(-2px, 2px); }
+            40% { transform: translate(2px, -1px); }
+            45% { transform: translate(-1px, 1px); }
+            50% { transform: translate(0,0); }
+            100% { transform: translate(0,0); }
+        }
+        .nudge-shaking {
+            animation: nudge-shake 0.6s ease-in-out;
+        }
+        .nudge-message {
+            text-align: center;
+            font-size: 0.82em;
+            color: #ff9500;
+            font-weight: 600;
+            padding: 6px 12px;
+            margin: 4px auto;
+            background: rgba(255,149,0,0.08);
+            border-radius: 16px;
+            display: inline-block;
+            max-width: 80%;
+        }
+        .nudge-message-wrapper {
+            text-align: center;
+            width: 100%;
+        }
+
+        /* Lightbox para visualizar imágenes */
+        #image-lightbox {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 10000;
+            background: rgba(0,0,0,0.92);
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            cursor: zoom-out;
+            -webkit-backdrop-filter: blur(8px);
+            backdrop-filter: blur(8px);
+        }
+        #image-lightbox.active { display: flex; }
+        #image-lightbox img {
+            max-width: 92vw;
+            max-height: 85vh;
+            object-fit: contain;
+            border-radius: 8px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        #image-lightbox .lightbox-close {
+            position: absolute;
+            top: 16px; right: 18px;
+            background: rgba(255,255,255,0.15);
+            border: none;
+            color: #fff;
+            font-size: 1.6em;
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10001;
+        }
+        #image-lightbox .lightbox-close:hover { background: rgba(255,255,255,0.3); }
+        #image-lightbox .lightbox-download {
+            margin-top: 14px;
+            background: rgba(255,255,255,0.15);
+            border: none;
+            color: #fff;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            cursor: pointer;
+        }
+        #image-lightbox .lightbox-download:hover { background: rgba(255,255,255,0.3); }
+
+        #ichat-description {
+            margin-top: 14px;
+            padding: 16px 18px;
+            background: rgba(255,255,255,0.85);
+            border-radius: 14px;
+            max-width: 340px;
+            width: 100%;
+            text-align: left;
+            box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+        }
+
+        .share-link-card {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 12px 12px;
+            border-radius: 12px;
+            background: rgba(0,122,255,0.08);
+            border: 1px solid rgba(0,122,255,0.12);
+            margin-bottom: 12px;
+        }
+        .share-link-title {
+            font-weight: 800;
+            color: #0a2a5a;
+            font-size: 0.95em;
+            line-height: 1.25;
+        }
+        .share-link-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            justify-content: space-between;
+        }
+        .share-link-url {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 0.85em;
+            color: #003a8c;
+            background: rgba(255,255,255,0.75);
+            padding: 8px 10px;
+            border-radius: 10px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex: 1;
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+        .share-link-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .share-btn {
+            border: none;
+            background: rgba(0,122,255,0.15);
+            color: #003a8c;
+            padding: 8px 10px;
+            border-radius: 10px;
+            font-size: 0.85em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+        .share-btn:hover { background: rgba(0,122,255,0.25); }
+        .share-hint {
+            margin: 0;
+            font-size: 0.82em;
+            color: rgba(0,0,0,0.55);
+            line-height: 1.35;
+        }
+
         /* Estilos para el encabezado del chat */
         #chat-header {
             display: flex;
@@ -1350,10 +1506,33 @@
 
     <div id="chat-container">
         <div id="name-prompt">
-            <h2>Bienvenido al Chat</h2>
-            <input type="text" id="name-input" placeholder="Tu nombre">
-            <input type="text" id="channel-input" placeholder="Canal (ej: ELCHISME01)" style="text-transform:uppercase;">
+            <h2>Bienvenido a Ichat<span style="color:#007aff">msn</span></h2>
+            <input type="text" id="name-input" placeholder="Tu nickname">
+            <input type="text" id="channel-input" placeholder="Canal (ej: EQUIPO2026)" style="text-transform:uppercase;">
             <button id="start-chat-button">Entrar al Chat</button>
+            <div id="ichat-description">
+                <div class="share-link-card">
+                    <div class="share-link-title">Comparte Ichatmsn con tus amigos</div>
+                    <div class="share-link-row">
+                        <div class="share-link-url" id="share-link-url">www.tinyurl.com/ichatmsn</div>
+                        <div class="share-link-actions">
+                            <button class="share-btn" id="copy-link-btn" type="button" title="Copiar link">Copiar</button>
+                            <button class="share-btn" id="share-link-btn" type="button" title="Compartir">Compartir</button>
+                        </div>
+                    </div>
+                    <p class="share-hint">Pásalo por WhatsApp o redes y arma tu canal privado en segundos.</p>
+                </div>
+                <p style="font-size:1.1em;font-weight:700;margin:0 0 6px 0;">Privacidad moderna con un toque retro 🗨️✨</p>
+                <p style="margin:0 0 8px 0;color:#555;font-size:0.88em;line-height:1.5;">
+                    Olvídate de dar tu número. Aquí solo necesitas un <b>Nickname</b> y un <b>Canal</b>.<br>
+                    ¿Canal nuevo? Créalo con un PIN. ¿Ya existe? Ingresa la clave y únete.
+                </p>
+                <p style="margin:0;color:#555;font-size:0.88em;line-height:1.5;">
+                    📞 Llamadas · 📹 Videollamadas · 📎 Multimedia · 💬 Zumbidos<br>
+                    Todo el poder moderno con la nostalgia del clásico Messenger.
+                </p>
+                <p style="margin:8px 0 0 0;font-size:0.82em;color:#007aff;font-weight:600;">Privado, divertido y sin complicaciones 🔒🚀</p>
+            </div>
         </div>
 
         <div id="chat-interface">
@@ -1401,6 +1580,9 @@
                     <button id="doc-button" class="media-btn" title="Enviar documento">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
                     </button>
+                    <button id="nudge-button" class="media-btn" title="Enviar zumbido">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                    </button>
                     <button id="mic-button" class="media-btn" title="Grabar audio">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
                     </button>
@@ -1433,6 +1615,13 @@
             <button class="end-call" id="reject-call-btn">❌</button>
             <button class="accept-call" id="accept-call-btn">📞</button>
         </div>
+    </div>
+
+    <!-- Image Lightbox -->
+    <div id="image-lightbox">
+        <button class="lightbox-close" id="lightbox-close">&times;</button>
+        <img id="lightbox-img" src="" alt="Imagen">
+        <button class="lightbox-download" id="lightbox-download">💾 Guardar imagen</button>
     </div>
 
     <!-- Lock Overlay -->
@@ -1527,6 +1716,12 @@
         const database = firebase.database(); // Obtener la instancia de Realtime Database
 
         let userName = ''; // Variable para almacenar el nombre del usuario
+        // Verificar si un nombre ya fue usado en un canal (revisando mensajes existentes)
+        async function isNameTakenInChannel(name, channelId) {
+            const msgRef = database.ref(`channels/${channelId}/messages`);
+            const snap = await msgRef.orderByChild('name').equalTo(name).limitToFirst(1).once('value');
+            return snap.exists();
+        }
         let typingTimeout; // Para manejar el indicador de escribiendo
         let initialLoadComplete = false; // Bandera para saber si la carga inicial de mensajes ha terminado
         let audioUnlocked = false; // Bandera para rastrear si el audio se ha desbloqueado
@@ -1580,6 +1775,15 @@
 
             const success = await enterChannel(enteredChannel);
             if (!success) return;
+
+            // Verificar si el nombre ya fue usado en este canal
+            const nameTaken = await isNameTakenInChannel(enteredName, activeChannel);
+            if (nameTaken) {
+                alert(`El nombre "${enteredName}" ya fue usado en este canal. Usa otro nombre o pide que limpien el chat para liberarlo.`);
+                userName = '';
+                activeChannel = '';
+                return;
+            }
 
             namePrompt.style.display = 'none';
             chatInterface.style.display = 'flex';
@@ -1661,13 +1865,15 @@
         }
 
 
-        // Función para formatear el timestamp a HH:MM
+        // Función para formatear el timestamp a 12h AM/PM
         function formatTimestamp(timestamp) {
-            if (!timestamp) return ''; // Manejar caso sin timestamp
+            if (!timestamp) return '';
             const date = new Date(timestamp);
-            const hours = date.getHours().toString().padStart(2, '0');
+            let hours = date.getHours();
             const minutes = date.getMinutes().toString().padStart(2, '0');
-            return `${hours}:${minutes}`;
+            const ampm = hours >= 12 ? 'p.m.' : 'a.m.';
+            hours = hours % 12 || 12;
+            return `${hours}:${minutes} ${ampm}`;
         }
 
         // Función para enviar un mensaje (texto o respuesta)
@@ -1983,6 +2189,23 @@
         function displayMessage(msg, messageId) {
             console.log(`[${userName}] Displaying message:`, msg, "ID:", messageId); // Debugging log con nombre de usuario
 
+            // --- Zumbido / Nudge ---
+            if (msg.type === 'nudge') {
+                const wrapper = document.createElement('div');
+                wrapper.classList.add('nudge-message-wrapper');
+                wrapper.dataset.messageId = messageId;
+                const nudgeDiv = document.createElement('div');
+                nudgeDiv.classList.add('nudge-message');
+                nudgeDiv.textContent = `⚡ ${msg.name} te ha enviado un zumbido`;
+                wrapper.appendChild(nudgeDiv);
+                chatBox.appendChild(wrapper);
+                // Activar shake si es mensaje nuevo (no carga inicial) y no es del usuario actual
+                if (initialLoadComplete && msg.name !== userName) {
+                    triggerNudgeEffect();
+                }
+                return;
+            }
+
             const messageElement = document.createElement('div');
             messageElement.classList.add('message');
             messageElement.dataset.messageId = messageId; // Almacenar el ID del mensaje en el elemento DOM
@@ -2077,8 +2300,9 @@
                     img.src = msg.imageData;
                     img.alt = 'Imagen';
                     img.onclick = () => {
-                        const w = window.open('');
-                        w.document.write(`<img src="${msg.imageData}" style="max-width:100%;height:auto;">`);
+                        const lb = document.getElementById('image-lightbox');
+                        document.getElementById('lightbox-img').src = msg.imageData;
+                        lb.classList.add('active');
                     };
                     wrapper.appendChild(img);
 
@@ -2729,6 +2953,12 @@
             settingsDropdown.style.display = 'none';
             const newName = await showPromptModal('Ingresa tu nuevo nombre', 'Nuevo nombre');
             if (newName && newName !== userName) {
+                // Verificar si el nuevo nombre ya fue usado en este canal
+                const nameTaken = await isNameTakenInChannel(newName, activeChannel);
+                if (nameTaken) {
+                    alert(`El nombre "${newName}" ya fue usado en este canal. Usa otro nombre o pide que limpien el chat para liberarlo.`);
+                    return;
+                }
                 userName = newName;
                 localStorage.setItem('chatName', userName);
                 console.log(`Nombre cambiado a: ${userName}`);
@@ -2984,11 +3214,15 @@
         }
 
         // Ajustes iniciales al cargar la página
-        window.onload = function() {
+        window.onload = async function() {
              // Si hay un nombre y canal guardados, inicializar el chat
              const savedChannel = localStorage.getItem('chatChannel');
              if (localStorage.getItem('chatName') && savedChannel) {
-                 userName = localStorage.getItem('chatName');
+                 const savedName = localStorage.getItem('chatName');
+                 // Verificar que el nombre no haya sido tomado por otra persona
+                 // (solo bloquear si hay mensajes de ese nombre Y el usuario no es quien los escribió previamente)
+                 // En auto-login el usuario ya estaba en el canal, así que se permite re-entrar con su mismo nombre
+                 userName = savedName;
                  activeChannel = savedChannel;
                  setupChannelRefs(activeChannel);
                  namePrompt.style.display = 'none';
@@ -3088,6 +3322,123 @@
         const imageInput = document.getElementById('image-input');
 
         imageButton.addEventListener('click', () => imageInput.click());
+
+        // --- Lightbox para imágenes ---
+        (function() {
+            const lb = document.getElementById('image-lightbox');
+            const lbImg = document.getElementById('lightbox-img');
+            const lbClose = document.getElementById('lightbox-close');
+            const lbDownload = document.getElementById('lightbox-download');
+            lbClose.addEventListener('click', () => lb.classList.remove('active'));
+            lb.addEventListener('click', (e) => { if (e.target === lb) lb.classList.remove('active'); });
+            lbDownload.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const a = document.createElement('a');
+                a.href = lbImg.src;
+                a.download = 'ichat_imagen.jpg';
+                a.click();
+            });
+        })();
+
+        // --- Compartir link (Copiar / Share) ---
+        (function() {
+            const linkEl = document.getElementById('share-link-url');
+            const copyBtn = document.getElementById('copy-link-btn');
+            const shareBtn = document.getElementById('share-link-btn');
+            if (!linkEl || !copyBtn || !shareBtn) return;
+            const link = linkEl.textContent.trim();
+
+            copyBtn.addEventListener('click', async () => {
+                try {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(link);
+                    } else {
+                        const tmp = document.createElement('textarea');
+                        tmp.value = link;
+                        tmp.style.position = 'fixed';
+                        tmp.style.left = '-9999px';
+                        document.body.appendChild(tmp);
+                        tmp.select();
+                        document.execCommand('copy');
+                        tmp.remove();
+                    }
+                    showToast('✅ Link copiado. ¡Compártelo con tus amigos!');
+                } catch (e) {
+                    console.error('Error al copiar link:', e);
+                    alert('No se pudo copiar el link. Cópialo manualmente: ' + link);
+                }
+            });
+
+            shareBtn.addEventListener('click', async () => {
+                try {
+                    if (navigator.share) {
+                        await navigator.share({
+                            title: 'Ichatmsn',
+                            text: 'Únete a mi canal en Ichatmsn:',
+                            url: 'https://www.tinyurl.com/ichatmsn'
+                        });
+                    } else {
+                        // Fallback: copiar
+                        copyBtn.click();
+                    }
+                } catch (e) {
+                    // Si cancelan el share sheet, no mostrar error
+                    console.warn('Share cancelado o falló:', e);
+                }
+            });
+        })();
+
+        // --- Zumbido / Nudge (MSN Messenger style) ---
+        let lastNudgeTime = 0;
+        const NUDGE_COOLDOWN = 5000; // 5 segundos entre zumbidos
+
+        function triggerNudgeEffect() {
+            // Shake the chat container
+            const chatContainer = document.getElementById('chat-container');
+            chatContainer.classList.add('nudge-shaking');
+            setTimeout(() => chatContainer.classList.remove('nudge-shaking'), 600);
+            // Vibrar en dispositivos móviles
+            if (navigator.vibrate) {
+                navigator.vibrate([100, 50, 100, 50, 150]);
+            }
+            // Sonido de zumbido (generado con AudioContext)
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(440, ctx.currentTime);
+                osc.frequency.setValueAtTime(520, ctx.currentTime + 0.08);
+                osc.frequency.setValueAtTime(380, ctx.currentTime + 0.16);
+                osc.frequency.setValueAtTime(480, ctx.currentTime + 0.24);
+                gain.gain.setValueAtTime(0.15, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.35);
+            } catch(e) { console.warn('No se pudo reproducir sonido de zumbido:', e); }
+        }
+
+        document.getElementById('nudge-button').addEventListener('click', () => {
+            if (!userName || !messagesRef) return;
+            const now = Date.now();
+            if (now - lastNudgeTime < NUDGE_COOLDOWN) {
+                const secsLeft = Math.ceil((NUDGE_COOLDOWN - (now - lastNudgeTime)) / 1000);
+                showToast(`⚡ Espera ${secsLeft}s para enviar otro zumbido`);
+                return;
+            }
+            lastNudgeTime = now;
+            messagesRef.push({
+                name: userName,
+                type: 'nudge',
+                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                status: 'sent'
+            });
+            // Efecto local también
+            triggerNudgeEffect();
+            showToast('⚡ ¡Zumbido enviado!');
+        });
 
         // Toast de notificación
         function showToast(message, duration = 3500) {
@@ -3521,7 +3872,13 @@
             currentFacingMode = 'user';
 
             try {
-                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: withVideo ? { facingMode: 'user' } : false });
+                // Usar exact para que Android identifique correctamente la cámara activa
+                try {
+                    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: withVideo ? { facingMode: { exact: 'user' } } : false });
+                } catch(camErr) {
+                    console.warn('exact facingMode falló en startCall, usando fallback:', camErr);
+                    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: withVideo });
+                }
                 if (withVideo) { localVideo.srcObject = localStream; }
 
                 peerConnection = new RTCPeerConnection(rtcConfig);
@@ -3621,7 +3978,12 @@
                 const withVideo = call.type === 'video';
 
                 currentFacingMode = 'user';
-                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: withVideo ? { facingMode: 'user' } : false });
+                try {
+                    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: withVideo ? { facingMode: { exact: 'user' } } : false });
+                } catch(camErr) {
+                    console.warn('exact facingMode falló en acceptCall, usando fallback:', camErr);
+                    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: withVideo });
+                }
                 if (withVideo) { localVideo.style.display = 'block'; localVideo.srcObject = localStream; flipCameraBtn.style.display = 'flex'; }
 
                 peerConnection = new RTCPeerConnection(rtcConfig);
