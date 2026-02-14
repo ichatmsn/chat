@@ -3717,6 +3717,7 @@
             if (!localStream || !peerConnection) return;
             const prevFacing = currentFacingMode;
             currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+            console.log('Intentando cambiar cámara a:', currentFacingMode);
             let newStream = null;
             try {
                 // Intentar con exact para forzar el cambio de cámara
@@ -3724,28 +3725,36 @@
                     audio: false,
                     video: { facingMode: { exact: currentFacingMode } }
                 });
+                console.log('✅ exact facingMode funcionó');
             } catch (e1) {
+                console.warn('⚠️ exact facingMode falló, intentando deviceId:', e1);
                 // Fallback: enumerar dispositivos y elegir otra cámara
                 try {
                     const devices = await navigator.mediaDevices.enumerateDevices();
                     const videoDevices = devices.filter(d => d.kind === 'videoinput');
+                    console.log('📹 Dispositivos de video:', videoDevices.map(d => ({ id: d.deviceId, label: d.label })));
                     if (videoDevices.length > 1) {
                         const currentTrack = localStream.getVideoTracks()[0];
                         const currentDeviceId = currentTrack ? currentTrack.getSettings().deviceId : '';
+                        console.log('📹 DeviceId actual:', currentDeviceId);
                         const otherDevice = videoDevices.find(d => d.deviceId !== currentDeviceId) || videoDevices[1];
+                        console.log('📹 Intentando deviceId:', otherDevice.deviceId);
                         newStream = await navigator.mediaDevices.getUserMedia({
                             audio: false,
                             video: { deviceId: { exact: otherDevice.deviceId } }
                         });
+                        console.log('✅ deviceId exact funcionó');
                     } else {
+                        console.warn('⚠️ Solo hay una cámara, intentando facingMode sin exact');
                         // Sin exact como último recurso
                         newStream = await navigator.mediaDevices.getUserMedia({
                             audio: false,
                             video: { facingMode: currentFacingMode }
                         });
+                        console.log('✅ facingMode sin exact funcionó');
                     }
                 } catch (e2) {
-                    console.error('Error al voltear cámara:', e2);
+                    console.error('❌ Error al voltear cámara:', e2);
                     currentFacingMode = prevFacing;
                     return;
                 }
