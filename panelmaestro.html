@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iChat - Panel Maestro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background: #f5f5f7;
+            color: #1c1c1e;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: #007aff;
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 12px rgba(0, 122, 255, 0.2);
+        }
+
+        header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        header p {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 32px;
+            font-weight: 700;
+            color: #007aff;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            color: #8e8e93;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #c6c6c8;
+            overflow-x: auto;
+        }
+
+        .tab {
+            padding: 12px 20px;
+            background: none;
+            border: none;
+            color: #8e8e93;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            color: #007aff;
+        }
+
+        .tab.active {
+            color: #007aff;
+            border-bottom-color: #007aff;
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .card-title {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #007aff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+
+        .btn-danger {
+            background: #ff3b30;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #d70015;
+        }
+
+        .btn-secondary {
+            background: #f2f2f7;
+            color: #007aff;
+        }
+
+        .btn-secondary:hover {
+            background: #e5e5ea;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .channel-item, .user-item, .message-item {
+            padding: 16px;
+            border: 1px solid #e5e5ea;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            background: #fafafa;
+        }
+
+        .channel-item:hover, .user-item:hover, .message-item:hover {
+            background: #f0f0f2;
+        }
+
+        .channel-header, .user-header, .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .channel-name, .user-name, .message-sender {
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .channel-pin, .user-status, .message-time {
+            color: #8e8e93;
+            font-size: 14px;
+        }
+
+        .channel-details, .user-details, .message-content {
+            color: #48484a;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .channel-actions, .user-actions, .message-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .badge-online {
+            background: #30d158;
+            color: white;
+        }
+
+        .badge-offline {
+            background: #8e8e93;
+            color: white;
+        }
+
+        .badge-locked {
+            background: #ff9500;
+            color: white;
+        }
+
+        .badge-unlocked {
+            background: #30d158;
+            color: white;
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid #c6c6c8;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+
+        .search-box:focus {
+            outline: none;
+            border-color: #007aff;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #8e8e93;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #8e8e93;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .modal-body {
+            margin-bottom: 20px;
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #c6c6c8;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #007aff;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 12px;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 12px;
+            }
+
+            .card {
+                padding: 16px;
+            }
+
+            .channel-actions, .user-actions, .message-actions {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔧 Panel Maestro iChat</h1>
+            <p>Gestión centralizada de canales, usuarios y mensajes</p>
+        </header>
+
+        <!-- Estadísticas -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number" id="totalChannels">-</div>
+                <div class="stat-label">Canales Totales</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="onlineUsers">-</div>
+                <div class="stat-label">Usuarios Online</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="totalMessages">-</div>
+                <div class="stat-label">Mensajes Totales</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="lockedChannels">-</div>
+                <div class="stat-label">Canales Bloqueados</div>
+            </div>
+        </div>
+
+        <!-- Pestañas -->
+        <div class="tabs">
+            <button class="tab active" data-tab="channels">📡 Canales</button>
+            <button class="tab" data-tab="users">👥 Usuarios</button>
+            <button class="tab" data-tab="messages">💬 Mensajes</button>
+            <button class="tab" data-tab="logs">📋 Logs</button>
+        </div>
+
+        <!-- Contenido de pestañas -->
+        <div id="channels-tab" class="tab-content active">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Gestión de Canales</h2>
+                    <button class="btn btn-primary" onclick="refreshChannels()">🔄 Actualizar</button>
+                </div>
+                <input type="text" class="search-box" id="channelSearch" placeholder="Buscar canal...">
+                <div id="channelsList" class="loading">Cargando canales...</div>
+            </div>
+        </div>
+
+        <div id="users-tab" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Usuarios Conectados</h2>
+                    <button class="btn btn-primary" onclick="refreshUsers()">🔄 Actualizar</button>
+                </div>
+                <input type="text" class="search-box" id="userSearch" placeholder="Buscar usuario...">
+                <div id="usersList" class="loading">Cargando usuarios...</div>
+            </div>
+        </div>
+
+        <div id="messages-tab" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Mensajes Recientes</h2>
+                    <button class="btn btn-primary" onclick="refreshMessages()">🔄 Actualizar</button>
+                </div>
+                <input type="text" class="search-box" id="messageSearch" placeholder="Buscar mensaje...">
+                <div id="messagesList" class="loading">Cargando mensajes...</div>
+            </div>
+        </div>
+
+        <div id="logs-tab" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Logs del Sistema</h2>
+                    <button class="btn btn-secondary" onclick="clearLogs()">🗑️ Limpiar</button>
+                </div>
+                <div id="logsList" class="empty-state">No hay logs disponibles</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para cambiar PIN -->
+    <div id="pinModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Cambiar PIN del Canal</h3>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Canal:</label>
+                    <input type="text" class="form-input" id="pinChannelName" readonly>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Nuevo PIN:</label>
+                    <input type="text" class="form-input" id="newPinInput" placeholder="Ingrese nuevo PIN">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closePinModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="savePin()">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de confirmación -->
+    <div id="confirmModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="confirmTitle">Confirmar Acción</h3>
+            </div>
+            <div class="modal-body">
+                <p id="confirmMessage">¿Está seguro de realizar esta acción?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeConfirmModal()">Cancelar</button>
+                <button class="btn btn-danger" id="confirmBtn">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.1.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.1.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.1.1/firebase-analytics-compat.js"></script>
+
+    <script>
+        // Configuración de Firebase (misma que iChat)
+        const firebaseConfig = {
+            apiKey: "AIzaSyCimRCv6S5u0FhsfWrW_3A0dQJy0uAKVro",
+            authDomain: "facba-69d41.firebaseapp.com",
+            databaseURL: "https://facba-69d41-default-rtdb.firebaseio.com",
+            projectId: "facba-69d41",
+            storageBucket: "facba-69d41.firebasestorage.app",
+            messagingSenderId: "264089433073",
+            appId: "1:264089433073:web:968551648758972eb74a50",
+            measurementId: "G-NL7Y6NDH99"
+        };
+
+        // Inicializar Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // Variables globales
+        let channels = {};
+        let users = {};
+        let messages = {};
+        let logs = [];
+        let currentEditingChannel = null;
+
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeTabs();
+            initializeSearch();
+            loadData();
+        });
+
+        // Sistema de pestañas
+        function initializeTabs() {
+            const tabs = document.querySelectorAll('.tab');
+            const contents = document.querySelectorAll('.tab-content');
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const targetTab = tab.dataset.tab;
+
+                    // Actualizar pestañas activas
+                    tabs.forEach(t => t.classList.remove('active'));
+                    contents.forEach(c => c.classList.remove('active'));
+
+                    tab.classList.add('active');
+                    document.getElementById(`${targetTab}-tab`).classList.add('active');
+                });
+            });
+        }
+
+        // Sistema de búsqueda
+        function initializeSearch() {
+            document.getElementById('channelSearch').addEventListener('input', (e) => {
+                filterChannels(e.target.value);
+            });
+
+            document.getElementById('userSearch').addEventListener('input', (e) => {
+                filterUsers(e.target.value);
+            });
+
+            document.getElementById('messageSearch').addEventListener('input', (e) => {
+                filterMessages(e.target.value);
+            });
+        }
+
+        // Cargar todos los datos
+        async function loadData() {
+            try {
+                await Promise.all([
+                    loadChannels(),
+                    loadUsers(),
+                    loadMessages(),
+                    updateStats()
+                ]);
+                addLog('Panel maestro inicializado correctamente');
+            } catch (error) {
+                console.error('Error al cargar datos:', error);
+                addLog('Error al cargar datos: ' + error.message, 'error');
+            }
+        }
+
+        // Cargar canales
+        async function loadChannels() {
+            const channelsRef = database.ref('channels');
+            const snapshot = await channelsRef.once('value');
+            channels = snapshot.val() || {};
+            renderChannels();
+        }
+
+        // Renderizar canales
+        function renderChannels() {
+            const container = document.getElementById('channelsList');
+            
+            if (Object.keys(channels).length === 0) {
+                container.innerHTML = '<div class="empty-state">No hay canales creados</div>';
+                return;
+            }
+
+            const html = Object.entries(channels).map(([channelId, channelData]) => {
+                const config = channelData.config || {};
+                const lockStatus = channelData.chat_lock || {};
+                const messageCount = Object.keys(channelData.messages || {}).length;
+                const isLocked = lockStatus.locked || false;
+
+                return `
+                    <div class="channel-item" data-channel="${channelId}">
+                        <div class="channel-header">
+                            <div>
+                                <span class="channel-name">${channelId.toUpperCase()}</span>
+                                <span class="badge ${isLocked ? 'badge-locked' : 'badge-unlocked'}">
+                                    ${isLocked ? '🔒 Bloqueado' : '🔓 Libre'}
+                                </span>
+                            </div>
+                            <span class="channel-pin">PIN: ${config.pin || 'N/A'}</span>
+                        </div>
+                        <div class="channel-details">
+                            <div>Mensajes: ${messageCount}</div>
+                            ${isLocked ? `<div>Bloqueado por: ${lockStatus.lockedBy || 'N/A'}</div>` : ''}
+                        </div>
+                        <div class="channel-actions">
+                            <button class="btn btn-secondary btn-small" onclick="viewChannel('${channelId}')">👁️ Ver</button>
+                            <button class="btn btn-primary btn-small" onclick="editChannelPin('${channelId}')">🔑 Cambiar PIN</button>
+                            <button class="btn btn-secondary btn-small" onclick="toggleChannelLock('${channelId}')">
+                                ${isLocked ? '🔓 Desbloquear' : '🔒 Bloquear'}
+                            </button>
+                            <button class="btn btn-danger btn-small" onclick="deleteChannel('${channelId}')">🗑️ Eliminar</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = html;
+        }
+
+        // Filtrar canales
+        function filterChannels(searchTerm) {
+            const items = document.querySelectorAll('.channel-item');
+            const term = searchTerm.toLowerCase();
+
+            items.forEach(item => {
+                const channelName = item.querySelector('.channel-name').textContent.toLowerCase();
+                const channelPin = item.querySelector('.channel-pin').textContent.toLowerCase();
+                
+                if (channelName.includes(term) || channelPin.includes(term)) {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+
+        // Cargar usuarios
+        async function loadUsers() {
+            const usersRef = database.ref('channels');
+            const snapshot = await usersRef.once('value');
+            const channelsData = snapshot.val() || {};
+            
+            users = {};
+            
+            // Recopilar usuarios de todos los canales
+            Object.entries(channelsData).forEach(([channelId, channelData]) => {
+                const presence = channelData.presence || {};
+                Object.entries(presence).forEach(([userName, userData]) => {
+                    if (!users[userName]) {
+                        users[userName] = {
+                            name: userName,
+                            channels: [],
+                            status: userData.online ? 'online' : 'offline',
+                            lastSeen: userData.lastSeen || null
+                        };
+                    }
+                    users[userName].channels.push(channelId);
+                });
+            });
+
+            renderUsers();
+        }
+
+        // Renderizar usuarios
+        function renderUsers() {
+            const container = document.getElementById('usersList');
+            
+            if (Object.keys(users).length === 0) {
+                container.innerHTML = '<div class="empty-state">No hay usuarios conectados</div>';
+                return;
+            }
+
+            const html = Object.values(users).map(user => {
+                const isOnline = user.status === 'online';
+                const channelsList = user.channels.map(ch => ch.toUpperCase()).join(', ');
+
+                return `
+                    <div class="user-item" data-user="${user.name}">
+                        <div class="user-header">
+                            <span class="user-name">${user.name}</span>
+                            <span class="badge ${isOnline ? 'badge-online' : 'badge-offline'}">
+                                ${isOnline ? '🟢 Online' : '⚫ Offline'}
+                            </span>
+                        </div>
+                        <div class="user-details">
+                            <div>Canales: ${channelsList}</div>
+                            ${user.lastSeen ? `<div>Última vez: ${new Date(user.lastSeen).toLocaleString()}</div>` : ''}
+                        </div>
+                        <div class="user-actions">
+                            <button class="btn btn-secondary btn-small" onclick="viewUserHistory('${user.name}')">📋 Historial</button>
+                            <button class="btn btn-danger btn-small" onclick="kickUser('${user.name}')">👢 Expulsar</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = html;
+        }
+
+        // Filtrar usuarios
+        function filterUsers(searchTerm) {
+            const items = document.querySelectorAll('.user-item');
+            const term = searchTerm.toLowerCase();
+
+            items.forEach(item => {
+                const userName = item.querySelector('.user-name').textContent.toLowerCase();
+                const channels = item.querySelector('.user-details').textContent.toLowerCase();
+                
+                if (userName.includes(term) || channels.includes(term)) {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+
+        // Cargar mensajes
+        async function loadMessages() {
+            const messagesRef = database.ref('channels');
+            const snapshot = await messagesRef.once('value');
+            const channelsData = snapshot.val() || {};
+            
+            messages = [];
+            
+            // Recopilar mensajes de todos los canales
+            Object.entries(channelsData).forEach(([channelId, channelData]) => {
+                const channelMessages = channelData.messages || {};
+                Object.entries(channelMessages).forEach(([messageId, messageData]) => {
+                    messages.push({
+                        id: messageId,
+                        channel: channelId,
+                        ...messageData
+                    });
+                });
+            });
+
+            // Ordenar por timestamp (más recientes primero)
+            messages.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+            
+            renderMessages();
+        }
+
+        // Renderizar mensajes
+        function renderMessages() {
+            const container = document.getElementById('messagesList');
+            
+            if (messages.length === 0) {
+                container.innerHTML = '<div class="empty-state">No hay mensajes</div>';
+                return;
+            }
+
+            // Limitar a los 50 mensajes más recientes
+            const recentMessages = messages.slice(0, 50);
+
+            const html = recentMessages.map(message => {
+                const time = new Date(message.timestamp).toLocaleString();
+                const channel = message.channel.toUpperCase();
+                const content = message.text || message.type || 'Mensaje sin texto';
+
+                return `
+                    <div class="message-item" data-message="${message.id}">
+                        <div class="message-header">
+                            <span class="message-sender">${message.name}</span>
+                            <span class="message-time">${time}</span>
+                        </div>
+                        <div class="message-content">
+                            <div>Canal: ${channel}</div>
+                            <div>${content}</div>
+                        </div>
+                        <div class="message-actions">
+                            <button class="btn btn-secondary btn-small" onclick="viewMessageDetails('${message.channel}', '${message.id}')">👁️ Detalles</button>
+                            <button class="btn btn-danger btn-small" onclick="deleteMessage('${message.channel}', '${message.id}')">🗑️ Eliminar</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = html;
+        }
+
+        // Filtrar mensajes
+        function filterMessages(searchTerm) {
+            const items = document.querySelectorAll('.message-item');
+            const term = searchTerm.toLowerCase();
+
+            items.forEach(item => {
+                const sender = item.querySelector('.message-sender').textContent.toLowerCase();
+                const content = item.querySelector('.message-content').textContent.toLowerCase();
+                
+                if (sender.includes(term) || content.includes(term)) {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+
+        // Actualizar estadísticas
+        async function updateStats() {
+            const totalChannels = Object.keys(channels).length;
+            const onlineUsers = Object.values(users).filter(u => u.status === 'online').length;
+            const totalMessages = messages.length;
+            const lockedChannels = Object.values(channels).filter(c => (c.chat_lock || {}).locked).length;
+
+            document.getElementById('totalChannels').textContent = totalChannels;
+            document.getElementById('onlineUsers').textContent = onlineUsers;
+            document.getElementById('totalMessages').textContent = totalMessages;
+            document.getElementById('lockedChannels').textContent = lockedChannels;
+        }
+
+        // Funciones de acción
+        function refreshChannels() {
+            loadChannels();
+            updateStats();
+            addLog('Canales actualizados');
+        }
+
+        function refreshUsers() {
+            loadUsers();
+            updateStats();
+            addLog('Usuarios actualizados');
+        }
+
+        function refreshMessages() {
+            loadMessages();
+            updateStats();
+            addLog('Mensajes actualizados');
+        }
+
+        function editChannelPin(channelId) {
+            currentEditingChannel = channelId;
+            const channel = channels[channelId];
+            const config = channel.config || {};
+            
+            document.getElementById('pinChannelName').value = channelId.toUpperCase();
+            document.getElementById('newPinInput').value = config.pin || '';
+            document.getElementById('pinModal').classList.add('active');
+        }
+
+        function closePinModal() {
+            document.getElementById('pinModal').classList.remove('active');
+            currentEditingChannel = null;
+        }
+
+        async function savePin() {
+            if (!currentEditingChannel) return;
+            
+            const newPin = document.getElementById('newPinInput').value.trim();
+            if (!newPin) {
+                alert('Por favor ingrese un PIN válido');
+                return;
+            }
+
+            try {
+                await database.ref(`channels/${currentEditingChannel}/config/pin`).set(newPin);
+                await loadChannels();
+                closePinModal();
+                addLog(`PIN del canal ${currentEditingChannel.toUpperCase()} actualizado`);
+                showAlert('PIN actualizado correctamente', 'success');
+            } catch (error) {
+                console.error('Error al actualizar PIN:', error);
+                addLog('Error al actualizar PIN: ' + error.message, 'error');
+                showAlert('Error al actualizar PIN', 'error');
+            }
+        }
+
+        async function toggleChannelLock(channelId) {
+            const channel = channels[channelId];
+            const isLocked = (channel.chat_lock || {}).locked;
+            
+            try {
+                if (isLocked) {
+                    await database.ref(`channels/${channelId}/chat_lock`).set({ locked: false });
+                    addLog(`Canal ${channelId.toUpperCase()} desbloqueado`);
+                } else {
+                    await database.ref(`channels/${channelId}/chat_lock`).set({
+                        locked: true,
+                        lockedBy: 'Admin',
+                        lockedAt: firebase.database.ServerValue.TIMESTAMP
+                    });
+                    addLog(`Canal ${channelId.toUpperCase()} bloqueado`);
+                }
+                
+                await loadChannels();
+                updateStats();
+            } catch (error) {
+                console.error('Error al cambiar estado de bloqueo:', error);
+                addLog('Error al cambiar estado de bloqueo: ' + error.message, 'error');
+            }
+        }
+
+        function deleteChannel(channelId) {
+            showConfirm(
+                `¿Está seguro de eliminar el canal ${channelId.toUpperCase()}? Esta acción eliminará todos los mensajes y no se puede deshacer.`,
+                async () => {
+                    try {
+                        await database.ref(`channels/${channelId}`).remove();
+                        delete channels[channelId];
+                        renderChannels();
+                        updateStats();
+                        addLog(`Canal ${channelId.toUpperCase()} eliminado`);
+                        showAlert('Canal eliminado correctamente', 'success');
+                    } catch (error) {
+                        console.error('Error al eliminar canal:', error);
+                        addLog('Error al eliminar canal: ' + error.message, 'error');
+                        showAlert('Error al eliminar canal', 'error');
+                    }
+                }
+            );
+        }
+
+        async function deleteMessage(channelId, messageId) {
+            showConfirm(
+                '¿Está seguro de eliminar este mensaje?',
+                async () => {
+                    try {
+                        await database.ref(`channels/${channelId}/messages/${messageId}`).remove();
+                        await loadMessages();
+                        addLog(`Mensaje eliminado de ${channelId.toUpperCase()}`);
+                        showAlert('Mensaje eliminado correctamente', 'success');
+                    } catch (error) {
+                        console.error('Error al eliminar mensaje:', error);
+                        addLog('Error al eliminar mensaje: ' + error.message, 'error');
+                        showAlert('Error al eliminar mensaje', 'error');
+                    }
+                }
+            );
+        }
+
+        function viewChannel(channelId) {
+            // Implementar vista detallada del canal
+            alert(`Ver detalles del canal ${channelId.toUpperCase()}`);
+        }
+
+        function viewUserHistory(userName) {
+            // Implementar historial de usuario
+            alert(`Ver historial del usuario ${userName}`);
+        }
+
+        function viewMessageDetails(channelId, messageId) {
+            // Implementar detalles del mensaje
+            alert(`Ver detalles del mensaje en ${channelId.toUpperCase()}`);
+        }
+
+        function kickUser(userName) {
+            showConfirm(
+                `¿Está seguro de expulsar al usuario ${userName}?`,
+                async () => {
+                    // Implementar expulsión de usuario
+                    addLog(`Usuario ${userName} expulsado`);
+                    showAlert(`Usuario ${userName} expulsado`, 'success');
+                }
+            );
+        }
+
+        // Sistema de logs
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleString();
+            logs.unshift({ timestamp, message, type });
+            
+            // Mantener solo los últimos 100 logs
+            if (logs.length > 100) {
+                logs = logs.slice(0, 100);
+            }
+            
+            renderLogs();
+        }
+
+        function renderLogs() {
+            const container = document.getElementById('logsList');
+            
+            if (logs.length === 0) {
+                container.innerHTML = '<div class="empty-state">No hay logs disponibles</div>';
+                return;
+            }
+
+            const html = logs.slice(0, 50).map(log => {
+                const typeClass = log.type === 'error' ? 'alert-error' : 
+                                log.type === 'success' ? 'alert-success' : 'alert-info';
+                
+                return `
+                    <div class="alert ${typeClass}" style="margin-bottom: 8px;">
+                        <small>${log.timestamp}</small><br>
+                        ${log.message}
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = html;
+        }
+
+        function clearLogs() {
+            logs = [];
+            renderLogs();
+            addLog('Logs limpiados');
+        }
+
+        // Sistema de modales
+        function showConfirm(message, onConfirm) {
+            document.getElementById('confirmMessage').textContent = message;
+            document.getElementById('confirmModal').classList.add('active');
+            
+            const confirmBtn = document.getElementById('confirmBtn');
+            confirmBtn.onclick = () => {
+                onConfirm();
+                closeConfirmModal();
+            };
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('confirmModal').classList.remove('active');
+        }
+
+        function showAlert(message, type) {
+            // Implementar sistema de alertas
+            console.log(`${type.toUpperCase()}: ${message}`);
+        }
+
+        // Auto-refresh cada 30 segundos
+        setInterval(() => {
+            loadData();
+        }, 30000);
+    </script>
+</body>
+</html>
