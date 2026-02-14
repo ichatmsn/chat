@@ -1,0 +1,3749 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>FACBA Chat</title>
+    <meta name="theme-color" content="#007aff">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Chat">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" sizes="192x192" href="./icon-192.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="./icon-192.png">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* Asegurar que html y body ocupen toda la altura de la ventanaa */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Prevenir scroll del body */
+            /* Establecer la fuente principal */
+            font-family: 'Roboto', sans-serif; /* Usar Roboto, con sans-serif como fallback moderno */
+            background-color: #f2f2f7; /* Fondo neutro para PC */
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            padding: 20px; /* En PC da aire alrededor del chat */
+            box-sizing: border-box;
+        }
+
+        /* Estilos generales y de contenedor */
+        #chat-container {
+            width: 100%; /* Ocupar todo el ancho disponible hasta el max-width */
+            max-width: 700px; /* Aumentar el ancho máximo */
+            background-color: #ffffff; /* Fondo blanco limpio */
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Sombra más suave */
+            border-radius: 15px; /* Bordes más redondeados */
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            /* Altura inicial al 100% del viewport */
+            height: calc(100vh - 40px); /* Considera el padding del body en PC */
+            max-height: calc(100vh - 40px); /* Asegurar que no exceda el viewport */
+            box-sizing: border-box;
+            padding: 0; /* Evita desalineación con el área fija inferior */
+        }
+
+        /* Estilos para la sección de ingreso de nombre */
+        #name-prompt {
+            padding: 30px 20px; /* Más padding */
+            text-align: center;
+            background-color: #e5e5ea; /* Gris claro */
+            border-bottom: 1px solid #d1d1d6; /* Borde sutil */
+            flex-shrink: 0; /* Evitar que se encoja */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #name-prompt h2 {
+            margin-top: 0;
+            color: #1c1c1e; /* Texto oscuro */
+            font-size: 1.5em; /* Aumentar tamaño del título */
+        }
+
+        #name-prompt input {
+            padding: 12px 15px; /* Más padding */
+            border: 1px solid #d1d1d6;
+            border-radius: 8px; /* Bordes redondeados */
+            font-size: 1.1em; /* Aumentar tamaño de fuente */
+            box-sizing: border-box; /* Incluir padding y border */
+            width: 80%;
+            max-width: 300px;
+        }
+
+        #name-prompt button {
+            padding: 12px 20px; /* Más padding */
+            background-color: #007aff; /* Azul de Apple */
+            color: white;
+            border: none;
+            border-radius: 8px; /* Bordes redondeados */
+            cursor: pointer;
+            font-size: 1.1em; /* Aumentar tamaño de fuente */
+            transition: background-color 0.2s ease-in-out;
+        }
+
+        #name-prompt button:hover {
+            background-color: #0056b3; /* Azul más oscuro */
+        }
+
+        /* Estilos para el encabezado del chat */
+        #chat-header {
+            display: flex;
+            justify-content: space-between; /* Espacio entre título/online y botón de settings */
+            align-items: center;
+            padding: 0 20px 10px 20px; /* Padding superior, sin padding lateral extra */
+            flex-shrink: 0;
+            position: relative; /* Para posicionar el dropdown */
+        }
+
+         #chat-header h2 {
+             margin: 0;
+             font-size: 1.3em;
+             color: #1c1c1e;
+         }
+
+        /* Ajustes finos para escritorio (mantener móvil intacto) */
+        @media (min-width: 769px) {
+            #bottom-fixed-area {
+                bottom: 20px; /* Alinea visualmente con el padding del body */
+            }
+        }
+
+         #online-users {
+             font-size: 0.9em;
+             color: #8e8e93;
+             margin-top: 5px;
+             min-height: 1.2em; /* Reserva espacio */
+         }
+
+
+        /* Estilos para la caja de chat (mensajes) */
+        #chat-box {
+            flex-grow: 1; /* Permite que la caja de chat ocupe el espacio restante */
+            padding: 0 20px; /* Padding lateral */
+            overflow-y: auto; /* Habilita el scroll vertical si los mensajes exceden la altura */
+            border-bottom: 1px solid #eee;
+            display: flex;
+            flex-direction: column;
+            gap: 12px; /* Más espacio entre mensajes */
+
+            /* Estilos para la imagen de fondo */
+            background-image: url('https://images.unsplash.com/photo-1518655048521-f130df041722?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'); /* URL de imagen de fondo moderna y sobria */
+            background-size: cover; /* Cubrir el área del contenedor */
+            background-position: center; /* Centrar la imagen */
+            background-repeat: no-repeat; /* No repetir la imagen */
+             /* Padding inferior dinámico ajustado por JS */
+            padding-bottom: 20px; /* Padding inicial, se ajustará con JS */
+        }
+
+        /* Estilos para cada mensaje individual */
+        .message {
+            padding: 12px 18px; /* Aumentar padding del mensaje */
+            border-radius: 18px; /* Bordes más redondeados */
+            max-width: 85%; /* Aumentar ancho máximo */
+            word-wrap: break-word;
+            position: relative;
+            line-height: 1.5; /* Mejorar espaciado entre líneas */
+            font-size: 1.1em; /* Aumentar tamaño de fuente base del mensaje */
+            /* Añadir un fondo semi-transparente para que el texto sea legible sobre la imagen */
+            background-color: rgba(255, 255, 255, 0.9); /* Blanco con 90% de opacidad */
+            cursor: pointer; /* Indicar que se puede hacer clic para responder */
+            display: flex; /* Usar flexbox para organizar el contenido interno */
+            flex-direction: column; /* Apilar nombre, respuesta, y footer */
+            z-index: 1; /* Asegurar que los mensajes estén por encima */
+        }
+
+        .message .name {
+             font-size: 0.9em; /* Tamaño de fuente del nombre (relativo al 1.1em del mensaje) */
+             color: #3a3a3c; /* Color de texto sutil */
+             margin-bottom: 2px; /* Espacio debajo del nombre */
+             display: block;
+             font-weight: 600; /* Semi-negrita */
+        }
+
+        .message .text {
+            display: block;
+            font-size: 1em; /* Tamaño de fuente del texto (relativo al 1.1em del mensaje) */
+            /* margin-bottom: 4px; Eliminado, el margen ahora está en el footer */
+             flex-grow: 1; /* Permitir que el texto ocupe espacio */
+             min-width: 0; /* Permitir que el texto se encoja y envuelva */
+             margin-right: auto; /* Empujar la hora/checks a la derecha */
+             padding-right: 8px; /* Espacio entre texto y hora/checks */
+             /* Asegurar que el texto se envuelva correctamente */
+             overflow-wrap: break-word;
+             word-break: break-word;
+        }
+
+         /* Estilos para los enlaces dentro de los mensajes */
+        .message a {
+            color: #007aff; /* Color azul para enlaces */
+            text-decoration: none; /* Sin subrayado por defecto */
+        }
+
+        .message a:hover {
+            text-decoration: underline; /* Subrayado al pasar el ratón */
+        }
+
+
+         /* Contenedor para texto, hora y checkmarks */
+         .message-footer {
+             display: flex;
+             align-items: center; /* Alinear verticalmente */
+             justify-content: flex-end; /* Alinear a la derecha */
+             flex-wrap: wrap; /* Permitir que los elementos se envuelvan si no hay espacio */
+             /* gap: 5px; */ /* Espacio entre elementos del footer */
+             margin-top: 4px; /* Espacio arriba del footer */
+         }
+
+
+        .message .timestamp {
+            font-size: 0.7em; /* Tamaño de fuente de la hora (relativo al 1.1em del mensaje) */
+            color: #8e8e93; /* Gris tenue */
+            /* text-align: right; Eliminado, manejado por flexbox */
+            display: inline-block; /* O inline, ambos funcionan con flexbox */
+             /* margin-top: 4px; Eliminado, el margen está en el footer */
+             flex-shrink: 0; /* Evitar que se encoja */
+             margin-left: 4px; /* Espacio a la izquierda del timestamp */
+        }
+
+         /* Estilos para los checkmarks */
+         .message .checkmarks {
+             font-size: 0.8em; /* Tamaño de los checkmarks */
+             color: #007aff; /* Color azul para checkmarks */
+             margin-left: 4px; /* Espacio a la izquierda */
+             vertical-align: middle; /* Alinear verticalmente */
+             display: inline; /* O inline-block */
+             flex-shrink: 0; /* Evitar que se encoja */
+         }
+
+         .edited-label {
+             font-size: 0.65em;
+             color: #8e8e93;
+             font-style: italic;
+             margin-right: 4px;
+             flex-shrink: 0;
+         }
+
+         .msg-actions-menu {
+             position: fixed;
+             background: #fff;
+             border-radius: 12px;
+             box-shadow: 0 4px 20px rgba(0,0,0,0.22);
+             z-index: 9999;
+             overflow: hidden;
+             min-width: 160px;
+         }
+         .msg-actions-menu button {
+             display: block;
+             width: 100%;
+             padding: 11px 16px;
+             border: none;
+             background: none;
+             text-align: left;
+             font-size: 0.9em;
+             cursor: pointer;
+             font-family: inherit;
+         }
+         .msg-actions-menu button:hover {
+             background: #f2f2f7;
+         }
+         .msg-actions-menu button:not(:last-child) {
+             border-bottom: 1px solid #e5e5ea;
+         }
+         .msg-actions-menu .delete-action {
+             color: #ff3b30;
+         }
+
+
+        /* Estilos para mensajes recibidos */
+        .message.received {
+            background-color: rgba(229, 229, 234, 0.9); /* Gris claro con 90% de opacidad */
+            align-self: flex-start;
+            border-bottom-left-radius: 5px; /* Esquina inferior izquierda menos redondeada */
+        }
+
+        /* Estilos para mensajes enviados */
+        .message.sent {
+            background-color: rgba(0, 122, 255, 0.9); /* Azul con 90% de opacidad */
+            color: white; /* Texto blanco */
+            align-self: flex-end;
+            border-bottom-right-radius: 5px; /* Esquina inferior derecha menos redondeada */
+        }
+
+         /* Estilos para mensajes enviados - elementos internos */
+        .message.sent .name,
+        .message.sent .text,
+        .message.sent .timestamp {
+            /* color: white !important; Removido para probar inline style */
+            color: inherit;
+        }
+         .message.sent .timestamp {
+             /* color: rgba(255, 255, 255, 0.8) !important; Removido para probar inline style */
+             color: inherit;
+         }
+         .message.sent .checkmarks {
+             color: white !important; /* Checkmarks blancos en mensajes enviados, forzar */
+         }
+
+        /* Estilos para el contenedor del video de YouTube y otros embeds */
+        .video-preview-container {
+            margin-top: 8px; /* Espacio entre el texto y el video */
+            margin-bottom: 4px; /* Espacio entre el video y el footer */
+            width: 100%; /* Ocupar el ancho del mensaje */
+            aspect-ratio: 16 / 9; /* Mantener relación de aspecto 16:9 */
+            overflow: hidden; /* Asegurar que el iframe o video no se salga */
+            border-radius: 8px; /* Bordes redondeados para la previsualización */
+        }
+
+        .video-preview-container iframe,
+        .video-preview-container video {
+            width: 100%;
+            height: 100%;
+            border: none; /* Eliminar borde */
+        }
+
+
+        /* Contenedor fijo para el área de input y el indicador de escribiendo */
+        #bottom-fixed-area {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            width: 100%;
+            max-width: 700px;
+            box-sizing: border-box;
+            margin: 0 auto;
+            z-index: 5;
+            display: flex;
+            flex-direction: column;
+            background: rgba(255,255,255,0.85);
+            -webkit-backdrop-filter: blur(16px);
+            backdrop-filter: blur(16px);
+            border-top: 1px solid rgba(0,0,0,0.06);
+            padding: 6px 14px 10px;
+        }
+
+        /* --- Debugging Styles for typing indicator --- */
+        #typing-indicator {
+            font-size: 0.9em; /* Aumentar tamaño */
+            color: #8e8e93; /* Gris tenue */
+            padding: 0 5px; /* Padding interno */
+            min-height: 1.2em; /* Reserva espacio */
+            text-align: right; /* Alinear a la derecha */
+            margin-bottom: 5px; /* Añadir margen debajo del indicador */
+            /* border: 1px dashed blue; Debugging border */
+            /* background-color: rgba(0, 0, 255, 0.1); Debugging background */
+        }
+        /* --- End Debugging Styles --- */
+
+
+        /* ========== MEDIA TOOLBAR (entre chat e input) ========== */
+        .media-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 6px;
+        }
+        .media-btn {
+            width: 36px;
+            height: 36px;
+            border: none;
+            border-radius: 50%;
+            background: transparent;
+            color: #007aff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s, transform 0.15s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .media-btn:hover { background: rgba(0,122,255,0.08); }
+        .media-btn:active { transform: scale(0.9); }
+        .media-btn svg { width: 21px; height: 21px; }
+        #mic-button.recording {
+            background: #ff3b30 !important;
+            color: white !important;
+            animation: pulse-rec 1s infinite;
+        }
+        #mic-button.recording svg { stroke: white; }
+
+        /* ========== INPUT BAR — iMessage Style ========== */
+        .message-input-area {
+            display: flex;
+            align-items: flex-end;
+            gap: 8px;
+            padding: 0 4px 2px;
+            flex-shrink: 0;
+        }
+
+        .message-input-area textarea {
+            flex: 1;
+            padding: 10px 16px;
+            border: 1.5px solid #e0e0e5;
+            border-radius: 22px;
+            font-size: 1em;
+            font-family: inherit;
+            box-sizing: border-box;
+            outline: none;
+            background: #f9f9fb;
+            transition: border-color 0.25s, box-shadow 0.25s;
+            line-height: 1.45;
+            resize: none;
+            min-height: 42px;
+            max-height: 120px;
+            overflow-y: auto;
+            color: #1c1c1e;
+        }
+        .message-input-area textarea::placeholder {
+            color: #b0b0b8;
+        }
+        .message-input-area textarea:focus {
+            border-color: #007aff;
+            box-shadow: 0 0 0 3px rgba(0,122,255,0.10);
+            background: #fff;
+        }
+
+        /* Icon buttons inside input bar */
+        .input-icon-btn {
+            width: 38px;
+            height: 38px;
+            border: none;
+            border-radius: 50%;
+            background: transparent;
+            color: #8e8e93;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: background 0.2s, color 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .input-icon-btn:hover { background: rgba(0,0,0,0.04); color: #3a3a3c; }
+        .input-icon-btn:active { transform: scale(0.92); }
+        .input-icon-btn svg { width: 22px; height: 22px; }
+
+        /* Send button */
+        #send-button {
+            width: 38px;
+            height: 38px;
+            border: none;
+            border-radius: 50%;
+            background: #007aff;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: background 0.2s, transform 0.15s;
+            -webkit-tap-highlight-color: transparent;
+            box-shadow: 0 2px 8px rgba(0,122,255,0.25);
+        }
+        #send-button:hover { background: #0062d1; }
+        #send-button:active { transform: scale(0.9); }
+        #send-button svg { width: 18px; height: 18px; margin-left: 2px; }
+
+        #emoji-button svg { stroke: #8e8e93; }
+        #emoji-button:hover svg { stroke: #3a3a3c; }
+
+        /* Estilos para el botón de limpiar chat */
+        /* Ahora dentro del dropdown */
+        #settings-dropdown button { /* Aplicar a todos los botones dentro del dropdown */
+            padding: 10px 15px; /* Padding para elemento de menú */
+            background-color: transparent; /* Fondo transparente */
+            color: #1c1c1e; /* Color de texto oscuro */
+            border: none;
+            border-radius: 0; /* Sin bordes redondeados */
+            cursor: pointer;
+            font-size: 1em; /* Tamaño de fuente estándar */
+            margin: 0; /* Sin margen */
+            width: 100%; /* Ocupar todo el ancho del dropdown */
+            text-align: left; /* Alinear texto a la izquierda */
+            transition: background-color 0.1s ease-in-out;
+            display: block; /* Asegurar que sea un bloque para ocupar el ancho */
+        }
+
+        #settings-dropdown button:hover { /* Aplicar a todos los botones al pasar el ratón */
+            background-color: #e5e5ea; /* Fondo gris claro al pasar el ratón */
+        }
+
+        /* Estilo específico para el botón de limpiar chat al pasar el ratón */
+        #settings-dropdown #clear-chat-button:hover {
+             color: #ff3b30; /* Color rojo al pasar el ratón */
+        }
+
+
+        /* Oculta la interfaz de chat inicialmente */
+        #chat-interface {
+            display: none;
+            flex-direction: column;
+            flex-grow: 1; /* Asegura que la interfaz de chat ocupe el espacio disponible */
+             /* Ajuste clave: Darle una altura al contenedor flex para que los hijos flex-grow funcionen */
+            height: 100%;
+            position: relative; /* Necesario para posicionar el selector de emojis si se pone fuera del input-area */
+        }
+
+        /* Estilos para el selector de emojis */
+        #emoji-picker {
+            display: none; /* Oculto por defecto */
+            position: absolute;
+            /* bottom se ajusta dinámicamente en JS */
+            left: 20px; /* Alinear a la izquierda */
+            background-color: #fff;
+            border: 1px solid #d1d1d6;
+            border-radius: 8px;
+            padding: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 10; /* Asegurar que esté por encima de otros elementos */
+            max-height: 200px; /* Altura máxima para scroll */
+            overflow-y: auto; /* Habilitar scroll si hay muchos emojis */
+            width: calc(100% - 40px); /* Ocupar el ancho del contenedor con padding */
+            box-sizing: border-box;
+            flex-wrap: wrap; /* Permite que los emojis se envuelvan */
+            gap: 5px; /* Espacio entre emojis */
+        }
+
+        #emoji-picker span {
+            cursor: pointer;
+            font-size: 1.5em; /* Tamaño de los emojis */
+            padding: 3px;
+            border-radius: 4px;
+            transition: background-color 0.1s ease-in-out;
+        }
+
+        #emoji-picker span:hover {
+            background-color: #e5e5ea;
+        }
+
+        /* Estilos para la vista previa del mensaje al responder */
+        #reply-preview {
+            display: none; /* Oculto por defecto */
+            background-color: #e5e5ea; /* Fondo gris claro */
+            border-left: 4px solid #007aff; /* Barra azul a la izquierda */
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 10px; /* Espacio debajo de la vista previa */
+            width: 100%; /* Ocupar todo el ancho */
+            box-sizing: border-box;
+            position: relative; /* Para posicionar el botón de cerrar */
+        }
+
+        #reply-preview .reply-name {
+            font-size: 0.9em;
+            color: #3a3a3c;
+            font-weight: 600;
+            margin-bottom: 2px;
+            display: block;
+        }
+
+        #reply-preview .reply-text {
+            font-size: 1em;
+            color: #1c1c1e;
+            display: block;
+            /* Limitar el texto para que no sea demasiado largo */
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        #reply-preview #cancel-reply-button {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #8e8e93; /* Color gris */
+            font-size: 1.2em;
+        }
+
+        #reply-preview #cancel-reply-button:hover {
+            color: #3a3a3c; /* Gris más oscuro al pasar el ratón */
+        }
+
+        /* Estilos para mostrar el contenido de la respuesta dentro de un mensaje */
+        .message .reply-content {
+            background-color: rgba(0, 0, 0, 0.05); /* Fondo ligeramente oscuro */
+            border-left: 4px solid rgba(0, 122, 255, 0.5); /* Barra azul semi-transparente */
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin-bottom: 8px; /* Espacio debajo del contenido de respuesta */
+            font-size: 0.9em; /* Tamaño de fuente más pequeño */
+            word-wrap: break-word;
+        }
+
+        .message.sent .reply-content {
+             border-left-color: rgba(255, 255, 255, 0.5); /* Barra blanca semi-transparente en mensajes enviados */
+        }
+
+
+        .message .reply-content .reply-name {
+            font-weight: 600;
+            margin-bottom: 2px;
+            display: block;
+            color: #3a3a3c; /* Color de texto sutil */
+        }
+         .message.sent .reply-content .reply-name {
+             color: rgba(255, 255, 255, 0.8); /* Color de texto sutil en mensajes enviados */
+         }
+
+
+        .message .reply-content .reply-text {
+            display: block;
+            color: #1c1c1e; /* Texto oscuro */
+            /* Limitar el texto para que no sea demasiado largo */
+             white-space: nowrap;
+             overflow: hidden;
+             text-overflow: ellipsis;
+        }
+         .message.sent .reply-content .reply-text {
+             color: white; /* Texto blanco en mensajes enviados */
+         }
+
+
+        /* Estilos para el menú desplegable de configuración */
+        #settings-dropdown {
+            display: none; /* Oculto por defecto */
+            position: absolute;
+            /* bottom y right se ajustan dinámicamente en JS o se calculan */
+            background-color: #fff;
+            border: 1px solid #d1d1d6;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 10; /* Asegurar que esté por encima de otros elementos */
+            min-width: 150px; /* Ancho mínimo del menú */
+            padding: 5px 0; /* Padding interno */
+            flex-direction: column; /* Elementos apilados verticalmente */
+            top: 40px; /* Posicionar debajo del botón de settings */
+            right: 20px; /* Alinear a la derecha del chat-header */
+        }
+
+
+        /* Media query para pantallas más pequeñas (Android) */
+        @media (max-width: 768px) {
+            body {
+                padding: 0; /* Eliminar padding del body en móviles */
+                display: block;
+            }
+            #chat-container {
+                max-width: 100vw; /* Ocupar todo el ancho del viewport */
+                border-radius: 0; /* Eliminar bordes redondeados en pantalla completa */
+                 padding: 0; /* Eliminar padding del contenedor en móviles */
+                 height: 100vh;
+                 max-height: 100vh;
+            }
+
+            #name-prompt {
+                padding: 20px 15px;
+            }
+
+            #name-prompt input,
+            #name-prompt button {
+                font-size: 1em; /* Ajustar tamaño de fuente */
+                padding: 10px 12px; /* Ajustar padding */
+            }
+
+             #name-prompt input[type="text"] { /* Especificar input de texto */
+                 align-self: center;
+                 width: 90%;
+                 max-width: 300px;
+             }
+
+             /* Contenedor fijo para el área de input y el indicador de escribiendo en móviles */
+             #bottom-fixed-area {
+                 max-width: 100vw;
+                 padding: 10px 15px; /* Ajustar padding para móviles */
+                 bottom: 0;
+             }
+
+
+             .message-input-area {
+                 gap: 6px;
+                 padding: 0 2px 2px;
+             }
+
+             .message-input-area textarea {
+                 font-size: 0.95em;
+                 padding: 9px 14px;
+                 min-height: 38px;
+                 max-height: 100px;
+             }
+
+             .media-toolbar {
+                 padding: 2px 4px;
+                 gap: 2px;
+             }
+             .media-btn { width: 34px; height: 34px; }
+             .input-icon-btn { width: 34px; height: 34px; }
+             #send-button { width: 36px; height: 36px; }
+             #send-button svg { width: 16px; height: 16px; }
+
+             #settings-button {
+                 /* Ajuste de tamaño y posición para móviles */
+                 width: 40px;
+                 height: 40px;
+                 padding: 0;
+                 align-self: center;
+                 font-size: 1.5em; /* Tamaño para el emoji */
+                 /* Añadido para intentar centrar el emoji */
+                 line-height: 1;
+                 vertical-align: middle;
+             }
+
+             #settings-dropdown button { /* Aplicar a todos los botones dentro del dropdown */
+                 font-size: 0.9em;
+                 padding: 8px 12px;
+             }
+
+             .message {
+                 max-width: 90%; /* Permitir que los mensajes ocupen más ancho */
+             }
+
+             /* Ajuste del indicador de escribiendo en móviles */
+             #typing-indicator {
+                 /* align-self: flex-end; Eliminado */
+                 /* margin-bottom: 5px; Eliminado */
+                 padding: 0 5px; /* Ajustar padding lateral para móviles */
+                 text-align: right; /* Asegurar alineación derecha */
+                 margin-bottom: 5px; /* Añadir margen debajo del indicador */
+             }
+
+             /* Ajuste del selector de emojis en móviles */
+             #emoji-picker {
+                 /* bottom se ajustará dinámicamente en JS */
+                 left: 10px;
+                 width: calc(100% - 20px); /* Ajustar ancho para móviles */
+             }
+
+             /* Ajuste de la vista previa de respuesta en móviles */
+             #reply-preview {
+                 padding: 8px 10px;
+             }
+
+             /* Ajuste del dropdown de settings en móviles */
+             #settings-dropdown {
+                 top: 40px; /* Posicionar debajo del botón de settings */
+                 right: 10px; /* Alinear a la derecha en móviles */
+                 left: auto; /* Desactivar alineación izquierda */
+             }
+
+             /* Reducir tamaños generales en móvil */
+             .message {
+                 padding: 8px 12px;
+                 border-radius: 14px;
+                 font-size: 0.92em;
+                 line-height: 1.35;
+             }
+             .message .name {
+                 font-size: 0.8em;
+                 margin-bottom: 1px;
+             }
+             .message .text {
+                 font-size: 0.92em;
+                 padding-right: 4px;
+             }
+             .message .timestamp {
+                 font-size: 0.62em;
+             }
+             .message .checkmarks {
+                 font-size: 0.7em;
+             }
+             .edited-label {
+                 font-size: 0.58em;
+             }
+             #chat-box {
+                 padding: 0 10px;
+                 gap: 6px;
+                 padding-bottom: 10px;
+             }
+             #chat-header {
+                 padding: 0 12px 6px 12px;
+             }
+             #chat-header h2 {
+                 font-size: 1.05em;
+             }
+             #online-users {
+                 font-size: 0.75em;
+             }
+             .reply-bubble {
+                 font-size: 0.8em !important;
+                 padding: 4px 8px !important;
+             }
+        }
+
+        /* Extra compacto para pantallas Android pequeñas */
+        @media (max-width: 400px) {
+             .message {
+                 padding: 6px 10px;
+                 font-size: 0.88em;
+                 max-width: 92%;
+             }
+             #name-prompt h2 {
+                 font-size: 1.15em;
+             }
+             #name-prompt input, #name-prompt button {
+                 font-size: 0.9em;
+                 padding: 8px 10px;
+             }
+             #bottom-fixed-area {
+                 padding: 6px 10px;
+             }
+             .message-input-area textarea {
+                 font-size: 0.9em;
+                 padding: 6px 10px;
+                 min-height: 36px;
+             }
+        }
+
+        /* Ajuste para APK Android (WebView) - siempre respetar barra de estado */
+        @media (max-width: 768px) {
+            #chat-container {
+                padding-top: env(safe-area-inset-top, 30px);
+            }
+        }
+        .app-mode #chat-container {
+            border-radius: 0;
+            height: 100vh;
+            max-height: 100vh;
+            padding-top: env(safe-area-inset-top, 30px);
+        }
+        .app-mode body {
+            padding: 0;
+        }
+        .app-mode #bottom-fixed-area {
+            padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+        }
+
+         /* Header actions container */
+         .header-actions {
+             display: flex;
+             align-items: center;
+             gap: 2px;
+         }
+         .call-btn {
+             width: 36px;
+             height: 36px;
+             padding: 0;
+             display: flex;
+             justify-content: center;
+             align-items: center;
+             background: transparent;
+             border: none;
+             border-radius: 50%;
+             cursor: pointer;
+             font-size: 1.2em;
+             line-height: 1;
+         }
+         .call-btn:hover { background: #e5e5ea; }
+
+         @keyframes pulse-rec {
+             0%, 100% { transform: scale(1); }
+             50% { transform: scale(1.15); }
+         }
+
+         /* Imagen en mensajes */
+         .message-image {
+             max-width: 100%;
+             max-height: 250px;
+             border-radius: 10px;
+             cursor: pointer;
+             margin: 4px 0;
+         }
+         .image-wrapper {
+             position: relative;
+             display: inline-block;
+             max-width: 100%;
+         }
+         .image-expiry-badge {
+             position: absolute;
+             top: 6px;
+             left: 6px;
+             background: rgba(0,0,0,0.65);
+             color: #ffd60a;
+             font-size: 0.65em;
+             padding: 2px 7px;
+             border-radius: 8px;
+             pointer-events: none;
+         }
+         .image-download-btn {
+             position: absolute;
+             bottom: 8px;
+             right: 8px;
+             background: rgba(0,0,0,0.55);
+             color: white;
+             border: none;
+             border-radius: 50%;
+             width: 32px;
+             height: 32px;
+             font-size: 1em;
+             cursor: pointer;
+             display: flex;
+             align-items: center;
+             justify-content: center;
+         }
+         .image-expired-placeholder {
+             background: #e5e5ea;
+             border-radius: 10px;
+             padding: 20px;
+             text-align: center;
+             color: #8e8e93;
+             font-size: 0.85em;
+             margin: 4px 0;
+         }
+         .toast-notification {
+             position: fixed;
+             bottom: 80px;
+             left: 50%;
+             transform: translateX(-50%);
+             background: rgba(0,0,0,0.8);
+             color: white;
+             padding: 10px 20px;
+             border-radius: 20px;
+             font-size: 0.85em;
+             z-index: 9999;
+             opacity: 0;
+             transition: opacity 0.3s;
+             pointer-events: none;
+             text-align: center;
+             max-width: 90%;
+         }
+         .toast-notification.show { opacity: 1; }
+
+         /* Video en mensajes */
+         .message-video {
+             max-width: 100%;
+             max-height: 250px;
+             border-radius: 10px;
+             margin: 4px 0;
+             background: #000;
+         }
+         .video-wrapper {
+             position: relative;
+             display: inline-block;
+             max-width: 100%;
+         }
+         .video-wrapper .image-expiry-badge {
+             top: 6px; left: 6px;
+         }
+         .video-wrapper .image-download-btn {
+             top: 6px; right: 6px;
+         }
+
+         /* Documento en mensajes */
+         .doc-attachment {
+             display: flex;
+             align-items: center;
+             gap: 10px;
+             padding: 10px 14px;
+             border-radius: 12px;
+             margin: 4px 0;
+             min-width: 180px;
+             max-width: 280px;
+             cursor: pointer;
+             transition: background 0.2s;
+         }
+         .message.received .doc-attachment {
+             background: rgba(0,0,0,0.06);
+         }
+         .message.received .doc-attachment:hover {
+             background: rgba(0,0,0,0.1);
+         }
+         .message.sent .doc-attachment {
+             background: rgba(255,255,255,0.18);
+         }
+         .message.sent .doc-attachment:hover {
+             background: rgba(255,255,255,0.25);
+         }
+         .doc-icon {
+             width: 38px;
+             height: 38px;
+             min-width: 38px;
+             border-radius: 10px;
+             display: flex;
+             align-items: center;
+             justify-content: center;
+             font-size: 1.4em;
+         }
+         .message.received .doc-icon { background: rgba(0,122,255,0.1); }
+         .message.sent .doc-icon { background: rgba(255,255,255,0.2); }
+         .doc-info {
+             flex: 1;
+             min-width: 0;
+             display: flex;
+             flex-direction: column;
+             gap: 2px;
+         }
+         .doc-name {
+             font-size: 0.88em;
+             font-weight: 600;
+             overflow: hidden;
+             text-overflow: ellipsis;
+             white-space: nowrap;
+         }
+         .doc-size {
+             font-size: 0.72em;
+             opacity: 0.65;
+         }
+         .doc-expired-placeholder {
+             display: flex;
+             align-items: center;
+             gap: 8px;
+             padding: 10px 14px;
+             border-radius: 12px;
+             background: rgba(0,0,0,0.05);
+             color: #8e8e93;
+             font-size: 0.85em;
+             margin: 4px 0;
+         }
+
+         /* iOS Install Banner */
+         .ios-install-banner {
+             display: none;
+             position: fixed;
+             bottom: 0;
+             left: 0;
+             right: 0;
+             background: white;
+             border-radius: 20px 20px 0 0;
+             box-shadow: 0 -4px 30px rgba(0,0,0,0.18);
+             z-index: 10001;
+             padding: 24px 20px 30px;
+             animation: ios-slide-up 0.35s ease-out;
+             max-width: 500px;
+             margin: 0 auto;
+         }
+         .ios-install-banner.show { display: block; }
+         @keyframes ios-slide-up {
+             from { transform: translateY(100%); }
+             to { transform: translateY(0); }
+         }
+         .ios-banner-header {
+             display: flex;
+             align-items: center;
+             justify-content: space-between;
+             margin-bottom: 16px;
+         }
+         .ios-banner-header h3 {
+             margin: 0;
+             font-size: 1.15em;
+             color: #1c1c1e;
+         }
+         .ios-banner-close {
+             width: 30px;
+             height: 30px;
+             border: none;
+             background: #e5e5ea;
+             border-radius: 50%;
+             font-size: 1.1em;
+             cursor: pointer;
+             display: flex;
+             align-items: center;
+             justify-content: center;
+             color: #8e8e93;
+         }
+         .ios-banner-steps {
+             list-style: none;
+             padding: 0;
+             margin: 0;
+             display: flex;
+             flex-direction: column;
+             gap: 14px;
+         }
+         .ios-banner-steps li {
+             display: flex;
+             align-items: center;
+             gap: 12px;
+             font-size: 0.95em;
+             color: #3a3a3c;
+         }
+         .ios-step-icon {
+             width: 40px;
+             height: 40px;
+             min-width: 40px;
+             border-radius: 12px;
+             background: #f2f2f7;
+             display: flex;
+             align-items: center;
+             justify-content: center;
+             font-size: 1.3em;
+         }
+         .ios-step-num {
+             font-weight: 700;
+             color: #007aff;
+             margin-right: 4px;
+         }
+         .ios-install-backdrop {
+             display: none;
+             position: fixed;
+             inset: 0;
+             background: rgba(0,0,0,0.4);
+             z-index: 10000;
+         }
+         .ios-install-backdrop.show { display: block; }
+
+         /* Audio player custom en mensajes */
+         .audio-player-custom {
+             display: flex;
+             align-items: center;
+             gap: 10px;
+             min-width: 200px;
+             max-width: 300px;
+             padding: 6px 4px;
+             margin: 4px 0;
+         }
+         .audio-play-btn {
+             width: 36px;
+             height: 36px;
+             min-width: 36px;
+             border: none;
+             border-radius: 50%;
+             cursor: pointer;
+             display: flex;
+             align-items: center;
+             justify-content: center;
+             transition: transform 0.15s, background 0.2s;
+             -webkit-tap-highlight-color: transparent;
+         }
+         .audio-play-btn:active { transform: scale(0.9); }
+         /* Colores según contexto sent/received */
+         .message.sent .audio-play-btn {
+             background: rgba(255,255,255,0.25);
+             color: white;
+         }
+         .message.sent .audio-play-btn:hover { background: rgba(255,255,255,0.35); }
+         .message.received .audio-play-btn {
+             background: rgba(0,122,255,0.12);
+             color: #007aff;
+         }
+         .message.received .audio-play-btn:hover { background: rgba(0,122,255,0.2); }
+         .audio-play-btn svg { width: 18px; height: 18px; }
+
+         .audio-track {
+             flex: 1;
+             display: flex;
+             flex-direction: column;
+             gap: 3px;
+             min-width: 0;
+         }
+         .audio-progress-bar {
+             width: 100%;
+             height: 4px;
+             border-radius: 2px;
+             cursor: pointer;
+             appearance: none;
+             -webkit-appearance: none;
+             outline: none;
+         }
+         .message.sent .audio-progress-bar {
+             background: rgba(255,255,255,0.25);
+         }
+         .message.sent .audio-progress-bar::-webkit-slider-thumb {
+             -webkit-appearance: none;
+             width: 12px; height: 12px;
+             border-radius: 50%;
+             background: white;
+             cursor: pointer;
+         }
+         .message.sent .audio-progress-bar::-webkit-slider-runnable-track {
+             height: 4px; border-radius: 2px;
+         }
+         .message.received .audio-progress-bar {
+             background: rgba(0,0,0,0.1);
+         }
+         .message.received .audio-progress-bar::-webkit-slider-thumb {
+             -webkit-appearance: none;
+             width: 12px; height: 12px;
+             border-radius: 50%;
+             background: #007aff;
+             cursor: pointer;
+         }
+         .message.received .audio-progress-bar::-webkit-slider-runnable-track {
+             height: 4px; border-radius: 2px;
+         }
+         .audio-time {
+             font-size: 0.7em;
+             opacity: 0.75;
+             font-variant-numeric: tabular-nums;
+             white-space: nowrap;
+         }
+
+         /* Overlay de llamada */
+         #call-overlay {
+             display: none;
+             position: fixed;
+             top: 0; left: 0;
+             width: 100%; height: 100%;
+             background: rgba(0,0,0,0.92);
+             z-index: 10000;
+             flex-direction: column;
+             justify-content: center;
+             align-items: center;
+             color: white;
+             font-family: inherit;
+         }
+         #call-overlay.active { display: flex; }
+         #call-overlay .call-status {
+             font-size: 1.1em;
+             margin-bottom: 8px;
+             opacity: 0.8;
+         }
+         #call-overlay .call-name {
+             font-size: 1.8em;
+             font-weight: 700;
+             margin-bottom: 30px;
+         }
+         #call-overlay .call-timer {
+             font-size: 1.2em;
+             margin-bottom: 30px;
+             font-variant-numeric: tabular-nums;
+         }
+         #call-overlay video {
+             width: 90%;
+             max-width: 400px;
+             max-height: 50vh;
+             border-radius: 12px;
+             margin-bottom: 20px;
+             background: #111;
+         }
+         #call-overlay .remote-video { display: none; }
+         #call-overlay .local-video {
+             position: absolute;
+             top: 40px; right: 16px;
+             width: 100px;
+             height: 140px;
+             border-radius: 10px;
+             z-index: 2;
+             object-fit: cover;
+         }
+         .call-actions {
+             display: flex;
+             gap: 20px;
+         }
+         .call-actions button {
+             width: 60px;
+             height: 60px;
+             border-radius: 50%;
+             border: none;
+             font-size: 1.5em;
+             cursor: pointer;
+             display: flex;
+             justify-content: center;
+             align-items: center;
+         }
+         .call-actions .end-call {
+             background: #ff3b30;
+             color: white;
+         }
+         .call-actions .accept-call {
+             background: #34c759;
+             color: white;
+         }
+         .call-actions .toggle-btn {
+             background: rgba(255,255,255,0.2);
+             color: white;
+         }
+         .call-actions .toggle-btn.off {
+             background: rgba(255,255,255,0.5);
+         }
+
+         /* Estilos para el botón de configuración en general */
+         #settings-button {
+             /* Ajuste de tamaño y posición */
+             width: 40px;
+             height: 40px;
+             padding: 0;
+             display: flex;
+             justify-content: center;
+             align-items: center;
+             background-color: transparent; /* Fondo transparente */
+             border: none;
+             border-radius: 50%; /* Botón redondo */
+             cursor: pointer;
+             font-size: 1.5em; /* Tamaño para el emoji */
+             color: #1c1c1e; /* Color oscuro para el emoji */
+             /* Añadido para intentar centrar el emoji */
+             line-height: 1;
+             vertical-align: middle;
+         }
+
+         #settings-button:hover {
+             background-color: #e5e5ea; /* Fondo gris claro al pasar el ratón */
+         }
+
+
+        /* Lock Overlay */
+        #lock-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: #fff;
+            z-index: 500;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+        #lock-overlay.active { display: flex; }
+        .lock-content { text-align: center; padding: 40px; }
+        .lock-icon { font-size: 64px; margin-bottom: 16px; }
+        .lock-content h2 { font-size: 1.6em; color: #1c1c1e; margin-bottom: 8px; }
+        .lock-content p { font-size: 1em; color: #8e8e93; margin-bottom: 28px; }
+        .lock-buttons { display: flex; gap: 12px; justify-content: center; }
+        .lock-btn { padding: 12px 24px; border: none; border-radius: 10px; font-size: 1em; font-weight: 600; cursor: pointer; transition: background-color .2s; }
+        .lock-btn.primary { background-color: #007aff; color: #fff; }
+        .lock-btn.primary:hover { background-color: #0056b3; }
+        .lock-btn.secondary { background-color: #e5e5ea; color: #1c1c1e; }
+        .lock-btn.secondary:hover { background-color: #d1d1d6; }
+
+        /* Password / Prompt Modal */
+        #password-modal, #prompt-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.4);
+            z-index: 600;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+        #password-modal.active, #prompt-modal.active { display: flex; }
+        .pw-modal-card {
+            background: #fff;
+            border-radius: 14px;
+            padding: 28px 32px;
+            width: 90%;
+            max-width: 340px;
+            box-shadow: 0 8px 30px rgba(0,0,0,.15);
+            text-align: center;
+        }
+        .pw-modal-card h3 { font-size: 1.2em; color: #1c1c1e; margin-bottom: 16px; }
+        .pw-modal-card input {
+            width: 100%; padding: 10px 14px; border: 1px solid #d1d1d6; border-radius: 8px;
+            font-size: 1em; box-sizing: border-box; outline: none; margin-bottom: 8px;
+        }
+        .pw-modal-card input:focus { border-color: #007aff; box-shadow: 0 0 0 3px rgba(0,122,255,.12); }
+        #pw-modal-error { font-size: .85em; color: #ff3b30; min-height: 1.2em; margin-bottom: 12px; }
+        .pw-modal-actions { display: flex; gap: 10px; justify-content: center; }
+
+    </style>
+
+    <script src="https://www.gstatic.com/firebasejs/9.1.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.1.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.1.1/firebase-analytics-compat.js"></script>
+
+</head>
+<body>
+
+    <div id="chat-container">
+        <div id="name-prompt">
+            <h2>Bienvenido al Chat</h2>
+            <input type="text" id="name-input" placeholder="Tu nombre">
+            <input type="text" id="channel-input" placeholder="Canal (ej: ELCHISME01)" style="text-transform:uppercase;">
+            <button id="start-chat-button">Entrar al Chat</button>
+        </div>
+
+        <div id="chat-interface">
+            <div id="chat-header">
+                 <div>
+                     <h2 id="chat-title">FACBA</h2>
+                     <div id="online-users"></div> </div>
+                 <div class="header-actions">
+                     <button id="voice-call-button" class="call-btn" title="Llamada de voz">📞</button>
+                     <button id="video-call-button" class="call-btn" title="Videollamada">📹</button>
+                     <button id="settings-button" title="Configuración">
+                          ⚙️
+                     </button>
+                 </div>
+                 <div id="settings-dropdown">
+                     <button id="lock-chat-button">🔒 Bloqueo</button>
+                     <button id="clear-chat-button">Limpiar Chat</button>
+                     <button id="change-name-button">Cambiar Nombre</button>
+                     <button id="change-pin-button">🔑 Cambiar PIN</button>
+                     <button id="change-channel-button">📡 Cambiar Canal</button>
+                     <button id="install-app-button" style="display:none">📲 Instalar App</button>
+                 </div>
+            </div>
+             <div id="chat-box">
+                </div>
+            <div id="bottom-fixed-area">
+                <div id="typing-indicator"></div>
+                 <div id="emoji-picker">
+                     </div>
+                 <div id="reply-preview">
+                     <span class="reply-name"></span>
+                     <span class="reply-text"></span>
+                     <button id="cancel-reply-button">×</button>
+                 </div>
+                <div class="media-toolbar">
+                    <input type="file" id="image-input" accept="image/*" style="display:none">
+                    <input type="file" id="video-input" accept="video/*" style="display:none">
+                    <input type="file" id="doc-input" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar" style="display:none">
+                    <button id="image-button" class="media-btn" title="Enviar imagen">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                    </button>
+                    <button id="video-button" class="media-btn" title="Enviar video">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                    </button>
+                    <button id="doc-button" class="media-btn" title="Enviar documento">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    </button>
+                    <button id="mic-button" class="media-btn" title="Grabar audio">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                    </button>
+                </div>
+                <div class="message-input-area">
+                    <button id="emoji-button" class="input-icon-btn" title="Insertar Emoji">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                    </button>
+                    <textarea id="message-input" placeholder="Mensaje" autocomplete="off" autocorrect="off" rows="1"></textarea>
+                    <button id="send-button" title="Enviar">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                    </button>
+                </div>
+            </div>
+             </div>
+    </div>
+
+    <!-- Call Overlay -->
+    <div id="call-overlay">
+        <div class="call-status" id="call-status">Llamando...</div>
+        <div class="call-name" id="call-peer-name"></div>
+        <div class="call-timer" id="call-timer" style="display:none">00:00</div>
+        <video id="remote-video" class="remote-video" autoplay playsinline></video>
+        <video id="local-video" class="local-video" autoplay playsinline muted></video>
+        <div class="call-actions" id="call-actions-outgoing">
+            <button class="toggle-btn" id="flip-camera-btn" style="display:none" title="Voltear cámara">🔄</button>
+            <button class="end-call" id="end-call-btn">📞</button>
+        </div>
+        <div class="call-actions" id="call-actions-incoming" style="display:none">
+            <button class="end-call" id="reject-call-btn">❌</button>
+            <button class="accept-call" id="accept-call-btn">📞</button>
+        </div>
+    </div>
+
+    <!-- Lock Overlay -->
+    <div id="lock-overlay">
+        <div class="lock-content">
+            <div class="lock-icon">🔒</div>
+            <h2>No disponible</h2>
+            <p>Esta página se encuentra bloqueada</p>
+            <div class="lock-buttons">
+                <button id="lock-help-btn" class="lock-btn primary">Ayuda</button>
+                <button id="lock-more-btn" class="lock-btn secondary">Más opciones</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Password Modal -->
+    <div id="password-modal">
+        <div class="pw-modal-card">
+            <h3 id="pw-modal-title">Ingresa la clave</h3>
+            <input type="password" id="pw-modal-input" placeholder="Contraseña" autocomplete="off"/>
+            <p id="pw-modal-error"></p>
+            <div class="pw-modal-actions">
+                <button id="pw-modal-cancel" class="lock-btn secondary">Cancelar</button>
+                <button id="pw-modal-ok" class="lock-btn primary">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prompt Modal (replaces browser prompt) -->
+    <div id="prompt-modal">
+        <div class="pw-modal-card">
+            <h3 id="prompt-modal-title">Ingresa un valor</h3>
+            <input type="text" id="prompt-modal-input" placeholder="" autocomplete="off"/>
+            <div class="pw-modal-actions">
+                <button id="prompt-modal-cancel" class="lock-btn secondary">Cancelar</button>
+                <button id="prompt-modal-ok" class="lock-btn primary">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- iOS Install Banner -->
+    <div class="ios-install-backdrop" id="ios-install-backdrop"></div>
+    <div class="ios-install-banner" id="ios-install-banner">
+        <div class="ios-banner-header">
+            <h3>Instalar FACBA Chat</h3>
+            <button class="ios-banner-close" id="ios-banner-close">✕</button>
+        </div>
+        <ul class="ios-banner-steps">
+            <li>
+                <div class="ios-step-icon">⬆️</div>
+                <div><span class="ios-step-num">1.</span> Toca el botón <strong>Compartir</strong> (el cuadro con flecha hacia arriba) en la barra de Safari</div>
+            </li>
+            <li>
+                <div class="ios-step-icon">➕</div>
+                <div><span class="ios-step-num">2.</span> Desliza y selecciona <strong>"Agregar a pantalla de inicio"</strong></div>
+            </li>
+            <li>
+                <div class="ios-step-icon">✅</div>
+                <div><span class="ios-step-num">3.</span> Toca <strong>"Agregar"</strong> y listo, tendrás la app en tu iPhone</div>
+            </li>
+        </ul>
+    </div>
+
+    <audio id="notification-sound" src="sonido_mensaje.mp3" preload="auto"></audio>
+
+
+    <script>
+        // Detectar si estamos en APK (WebView) o PWA instalada
+        (function() {
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+            const ua = navigator.userAgent;
+            const isWebView = /wv|WebView/.test(ua) || (ua.includes('Android') && !ua.includes('Chrome/'));
+            if (isStandalone || isWebView) {
+                document.documentElement.classList.add('app-mode');
+            }
+        })();
+
+        // Configuración de tu aplicación web de Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyBVtSkeQe1WZna6nKC4vxd4ISRBRB5SVY", // Reemplaza con tu apiKey
+            authDomain: "facba-a160c.firebaseapp.com", // Reemplaza con tu authDomain
+            projectId: "facba-a160c", // Reemplaza con tu projectId
+            storageBucket: "facba-a160c.firebasestorage.app", // Reemplaza con tu storageBucket (aunque no se use Storage)
+            messagingSenderId: "585530132394", // Reemplaza con tu messagingSenderId
+            appId: "1:585530132394:web:a25cda63f883f786804dd3", // Reemplaza con tu appId
+            measurementId: "G-S29LSYM8TQ", // Reemplaza con tu measurementId
+            // Añadir explícitamente la URL de la base de datos
+            databaseURL: "https://facba-a160c-default-rtdb.firebaseio.com/" // Reemplaza con tu databaseURL
+        };
+
+        // Inicializar Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const database = firebase.database(); // Obtener la instancia de Realtime Database
+
+        let userName = ''; // Variable para almacenar el nombre del usuario
+        let typingTimeout; // Para manejar el indicador de escribiendo
+        let initialLoadComplete = false; // Bandera para saber si la carga inicial de mensajes ha terminado
+        let audioUnlocked = false; // Bandera para rastrear si el audio se ha desbloqueado
+
+
+        // Variable para almacenar los datos del mensaje al que se está respondiendo
+        let replyingToMessage = null;
+
+        // Intersection Observer para detectar cuando los mensajes son visibles
+        let messageObserver;
+
+
+        // Obtener elementos del DOM
+        const namePrompt = document.getElementById('name-prompt');
+        const nameInput = document.getElementById('name-input');
+        const channelInput = document.getElementById('channel-input');
+        const startChatButton = document.getElementById('start-chat-button');
+        const chatInterface = document.getElementById('chat-interface');
+        const chatBox = document.getElementById('chat-box');
+        // Cambiado de input type="text" a textarea
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        const typingIndicator = document.getElementById('typing-indicator'); // Elemento para el indicador
+        const notificationSound = document.getElementById('notification-sound'); // Elemento de audio
+        const emojiButton = document.getElementById('emoji-button'); // Botón de emoji
+        const emojiPicker = document.getElementById('emoji-picker'); // Selector de emojis
+        const replyPreview = document.getElementById('reply-preview'); // Vista previa de respuesta
+        const replyNameSpan = replyPreview.querySelector('.reply-name');
+        const replyTextSpan = replyPreview.querySelector('.reply-text');
+        const cancelReplyButton = document.getElementById('cancel-reply-button');
+        // Nuevos elementos para configuración
+        const settingsButton = document.getElementById('settings-button'); // Ahora en chat-header
+        const settingsDropdown = document.getElementById('settings-dropdown'); // Ahora en chat-header
+        const clearChatButton = document.getElementById('clear-chat-button'); // Ahora dentro del dropdown
+        const changeNameButton = document.getElementById('change-name-button'); // Nuevo botón para cambiar nombre
+        const chatContainer = document.getElementById('chat-container'); // Referencia al contenedor principal
+        const messageInputArea = document.querySelector('.message-input-area'); // Referencia al área de input
+        const onlineUsersDiv = document.getElementById('online-users'); // Elemento para usuarios en línea
+        const bottomFixedArea = document.getElementById('bottom-fixed-area'); // Nuevo contenedor fijo
+
+
+        // --- Lógica de Ingreso de Nombre ---
+        startChatButton.addEventListener('click', async () => {
+            const enteredName = nameInput.value.trim();
+            const enteredChannel = channelInput.value.trim().toUpperCase().replace(/[.$#\[\]\/]/g, '');
+
+            if (!enteredName) { console.log('Por favor, ingresa un nombre.'); return; }
+            if (!enteredChannel) { console.log('Por favor, ingresa un canal.'); return; }
+
+            userName = enteredName;
+
+            const success = await enterChannel(enteredChannel);
+            if (!success) return;
+
+            namePrompt.style.display = 'none';
+            chatInterface.style.display = 'flex';
+            messageInput.focus();
+            localStorage.setItem('chatName', userName);
+            localStorage.setItem('chatChannel', activeChannel);
+            document.getElementById('chat-title').textContent = activeChannel;
+            initializeChat();
+        });
+
+        // Permitir presionar Enter en los campos de nombre y canal
+        nameInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                channelInput.focus(); // Mover al campo de canal
+            }
+        });
+        channelInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                startChatButton.click(); // Simular clic en el botón
+            }
+        });
+
+        // --- Función para inicializar la carga y los listeners del chat ---
+        function initializeChat() {
+             console.log("initializeChat function called.");
+             setupMessageObserver(); // Configurar el Intersection Observer
+             loadInitialMessages(); // Cargar mensajes existentes una vez
+             setupRealtimeListeners(); // Configurar listeners en tiempo real una vez
+             setupTypingIndicator(); // Configurar el indicador de escribiendo
+             setupPresence(); // Configurar la presencia del usuario
+             setupChatLockListener(); // Escuchar estado de bloqueo global
+             requestNotificationPermission(); // Solicitar permiso de notificaciones
+             setTimeout(cleanupExpiredMedia, 3000); // Limpiar media expirada al iniciar
+        }
+
+
+        // --- Lógica del Chat (Realtime Database) ---
+
+        // Referencias dinámicas al canal activo (se asignan al entrar a un canal)
+        let messagesRef, typingRef, presenceRef, chatLockRef;
+        let activeChannel = '';
+
+        function setupChannelRefs(channelId) {
+            messagesRef = database.ref(`channels/${channelId}/messages`);
+            typingRef = database.ref(`channels/${channelId}/typing`);
+            presenceRef = database.ref(`channels/${channelId}/presence`);
+            chatLockRef = database.ref(`channels/${channelId}/chat_lock`);
+        }
+
+
+        // Clave para limpiar el chat (¡Mantén esto seguro en una aplicación real!)
+        const CLEAR_CHAT_PASSWORD = '9999';
+
+
+        // --- Lógica de Canales ---
+        async function enterChannel(channelId) {
+            const channelConfigRef = database.ref(`channels/${channelId}/config`);
+            const snapshot = await channelConfigRef.once('value');
+
+            if (snapshot.exists()) {
+                // Canal existe, pedir PIN
+                const config = snapshot.val();
+                const ok = await showPasswordModal('Ingresa el PIN del canal ' + channelId, config.pin);
+                if (!ok) return false;
+            } else {
+                // Canal nuevo, pedir crear PIN
+                const pin = await showPromptModal('Crea un PIN para el canal ' + channelId, 'PIN (ej: 1234)');
+                if (!pin) return false;
+                await channelConfigRef.set({
+                    pin: pin,
+                    createdBy: userName,
+                    createdAt: firebase.database.ServerValue.TIMESTAMP
+                });
+            }
+
+            activeChannel = channelId;
+            setupChannelRefs(channelId);
+            return true;
+        }
+
+
+        // Función para formatear el timestamp a HH:MM
+        function formatTimestamp(timestamp) {
+            if (!timestamp) return ''; // Manejar caso sin timestamp
+            const date = new Date(timestamp);
+            const hours = date.getHours().toString().padStart(2, '0');
+            const minutes = date.getMinutes().toString().padStart(2, '0');
+            return `${hours}:${minutes}`;
+        }
+
+        // Función para enviar un mensaje (texto o respuesta)
+        function sendMessage() {
+            console.log("sendMessage function called."); // Debugging log
+            const messageText = messageInput.value.trim(); // Obtener el texto del mensaje y limpiar
+            console.log("Message text:", messageText); // Debugging log
+            console.log("User name:", userName); // Debugging log
+
+            if (messageText && userName) { // Asegurarse de que haya texto y nombre de usuario
+                const newMessage = {
+                    name: userName,
+                    text: messageText,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP, // Usar el timestamp del servidor de Firebase
+                    status: 'sent' // Estado inicial: enviado
+                };
+
+                // Si estamos respondiendo a un mensaje, añadir la referencia
+                if (replyingToMessage) {
+                    newMessage.replyTo = {
+                        id: replyingToMessage.id, // ID único del mensaje original
+                        name: replyingToMessage.name,
+                        content: replyingToMessage.text ? replyingToMessage.text.substring(0, 50) + (replyingToMessage.text.length > 50 ? '...' : '') : 'Archivo' // Fragmento del texto o indicar que es archivo
+                    };
+                    console.log("Sending as a reply to:", replyingToMessage.id); // Debugging log
+                }
+
+                console.log("Attempting to send message to Realtime Database:", newMessage); // Debugging log
+
+                // Enviar el nuevo mensaje a la base de datos
+                messagesRef.push(newMessage)
+                    .then(() => {
+                        console.log("Mensaje enviado exitosamente a Realtime Database!");
+                        messageInput.value = ''; // Limpiar el campo de entrada
+                        setTypingStatus(false); // Limpiar estado de escritura
+                        cancelReply(); // Cancelar el estado de respuesta después de enviar
+                        // Después de enviar, ajustar la altura del textarea a la mínima
+                        messageInput.style.height = 'auto';
+                    })
+                    .catch((error) => {
+                        console.error("Error al enviar mensaje a Realtime Database:", error);
+                        // Mostrar mensaje de error al usuario
+                    });
+            } else {
+                 console.log("Message not sent: text or user name missing."); // Debugging log
+            }
+        }
+
+        // Listener para el botón de enviar texto
+        sendButton.addEventListener('click', sendMessage);
+
+        // Permitir presionar Enter en el campo de mensaje de texto (solo si no hay Shift)
+        messageInput.addEventListener('keypress', (event) => {
+            // Si es Enter y no Shift+Enter
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault(); // Prevenir el salto de línea por defecto
+                sendMessage(); // Enviar el mensaje
+            }
+            // Si es Shift+Enter, permitir el salto de línea
+        });
+
+
+         // --- Lógica de Ajuste de Altura del Textarea ---
+
+        // Función para ajustar la altura del textarea automáticamente
+        function adjustTextareaHeight() {
+             // Restablecer la altura a 'auto' para que se recalcule correctamente
+            messageInput.style.height = 'auto';
+            // Establecer la altura al scrollHeight (altura necesaria para mostrar todo el contenido)
+            // Limitar por max-height definido en CSS
+            messageInput.style.height = messageInput.scrollHeight + 'px';
+            // Después de ajustar la altura del textarea, ajustar el padding inferior del chatBox
+            adjustChatBoxPadding();
+        }
+
+        // Listener para el evento 'input' en el textarea para ajustar la altura
+        messageInput.addEventListener('input', adjustTextareaHeight);
+
+
+         // --- Lógica del Indicador de Escribiendo (Realtime Database) ---
+
+        // Función para establecer el estado de escritura en Realtime Database
+        function setTypingStatus(isTyping) {
+            if (!userName) return; // No hacer nada si el nombre del usuario no está establecido
+
+            const userTypingRef = typingRef.child(userName); // Referencia al estado del usuario actual en RTDB
+
+            if (isTyping) {
+                userTypingRef.set(true); // Establecer el estado a true
+                // Limpiar el estado después de un tiempo si el usuario deja de escribir
+                if (typingTimeout) clearTimeout(typingTimeout);
+                typingTimeout = setTimeout(() => {
+                    userTypingRef.remove(); // Eliminar el estado después de 1.5 segundos
+                }, 1500);
+            } else {
+                 // Limpiar el timeout si existe
+                 if (typingTimeout) {
+                     clearTimeout(typingTimeout);
+                     typingTimeout = null;
+                 }
+                 userTypingRef.remove(); // Eliminar el estado si ya no está escribiendo
+            }
+        }
+
+        // Listener para el campo de entrada de mensaje para detectar escritura
+        messageInput.addEventListener('input', () => {
+            if (messageInput.value.trim().length > 0) {
+                setTypingStatus(true); // El usuario está escribiendo
+            } else {
+                setTypingStatus(false); // El usuario ha borrado el texto
+            }
+        });
+
+        // Configurar el listener para el estado de escritura de otros usuarios
+        function setupTypingIndicator() {
+            typingRef.on('value', (snapshot) => { // Listener en RTDB
+                const typingUsers = snapshot.val();
+                const usersTyping = [];
+
+                if (typingUsers) {
+                    // Iterar sobre los usuarios que están escribiendo
+                    for (const name in typingUsers) {
+                        // Asegurarse de que no sea el usuario actual
+                        if (name !== userName) {
+                            usersTyping.push(name);
+                        }
+                    }
+                }
+
+                // Actualizar el texto del indicador
+                if (usersTyping.length > 0) {
+                    typingIndicator.textContent = `${usersTyping.join(', ')} está escribiendo...`;
+                } else {
+                    typingIndicator.textContent = ''; // Limpiar si nadie está escribiendo
+                }
+                // Después de actualizar el indicador, ajustar el padding del chatBox
+                adjustChatBoxPadding();
+            });
+        }
+
+
+        // --- Lógica para Cargar Mensajes Iniciales (Realtime Database) ---
+        function loadInitialMessages() {
+             console.log("loadInitialMessages function called."); // Debugging log
+
+             // Cargar mensajes existentes una vez al inicio
+             messagesRef.once('value', (snapshot) => {
+                 console.log("Initial message load from Realtime Database complete.");
+                 const messages = snapshot.val();
+                 if (messages) {
+                     // Convertir objeto de mensajes a array y ordenar por timestamp
+                     const messageList = Object.keys(messages).map(key => ({ id: key, ...messages[key] }));
+                     messageList.sort((a, b) => a.timestamp - b.timestamp);
+
+                     // Limpiar el chatbox antes de cargar los mensajes existentes
+                     chatBox.innerHTML = '';
+
+                     messageList.forEach((msg) => {
+                         displayMessage(msg, msg.id); // Pasar el ID a displayMessage
+                     });
+                 }
+                 chatBox.scrollTop = chatBox.scrollHeight; // Scroll al final
+                 initialLoadComplete = true; // Marcar la carga inicial como completa
+             }, (error) => {
+                 console.error("Error fetching initial messages from Realtime Database:", error);
+             });
+        }
+
+        // --- Lógica para Configurar Listeners en Tiempo Real (Realtime Database) ---
+        function setupRealtimeListeners() {
+            console.log("setupRealtimeListeners function called.");
+
+             // Escuchar en tiempo real los mensajes nuevos desde Realtime Database
+             // Este listener solo se adjunta UNA VEZ
+             messagesRef.on('child_added', (data) => {
+                 const newMessage = data.val();
+                 const messageId = data.key; // Obtener el ID único del mensaje
+                 console.log(`[${userName}] child_added event:`, newMessage, "ID:", messageId); // Debugging log con nombre de usuario
+
+                 // Solo mostrar el mensaje si no es parte de la carga inicial
+                 // La bandera initialLoadComplete ayuda a diferenciar
+                 if (initialLoadComplete) {
+                    displayMessage(newMessage, messageId); // Mostrar el nuevo mensaje
+                    // Reproducir sonido si el mensaje no es del usuario actual
+                     if (newMessage.name !== userName) {
+                         playNotificationSound();
+                     }
+                    chatBox.scrollTop = chatBox.scrollHeight; // Scroll al final
+                 } else {
+                     // Si aún no ha terminado la carga inicial, no hacemos nada con este evento
+                     // porque ya se mostrará en loadInitialMessages
+                     console.log(`[${userName}] Ignoring child_added event during initial load.`); // Debugging log con nombre de usuario
+                 }
+
+             }, (error) => {
+                 console.error(`[${userName}] Error in realtime listener for messages (child_added):`, error); // Debugging log con nombre de usuario
+             });
+
+             // Listener para actualizar el estado de los mensajes (doble check + ediciones)
+             messagesRef.on('child_changed', (data) => {
+                 const changedMessage = data.val();
+                 const messageId = data.key;
+                 console.log(`[${userName}] child_changed event: Message ${messageId} changed to:`, changedMessage);
+
+                 const messageElement = chatBox.querySelector(`[data-message-id="${messageId}"]`);
+                 if (!messageElement) return;
+
+                 const messageFooter = messageElement.querySelector('.message-footer');
+
+                 // Actualizar doble check si el mensaje fue leído
+                 if (changedMessage.name === userName && changedMessage.status === 'read' && messageFooter) {
+                     const existingCheckmarks = messageFooter.querySelector('.checkmarks');
+                     if (existingCheckmarks) existingCheckmarks.remove();
+                     const checkmarksSpan = document.createElement('span');
+                     checkmarksSpan.classList.add('checkmarks');
+                     checkmarksSpan.textContent = '✓✓';
+                     messageFooter.appendChild(checkmarksSpan);
+                 }
+
+                 // Actualizar texto si fue editado
+                 if (changedMessage.edited) {
+                     const textSpan = messageElement.querySelector('.text');
+                     if (textSpan) {
+                         const urlRegex = /(https?:\/\/[^\s]+)/g;
+                         textSpan.innerHTML = changedMessage.text.replace(urlRegex, '<a href="$1" target="_blank">$1</a>');
+                     }
+                     // Agregar etiqueta "editado" si no existe
+                     if (messageFooter && !messageFooter.querySelector('.edited-label')) {
+                         const editedSpan = document.createElement('span');
+                         editedSpan.classList.add('edited-label');
+                         editedSpan.textContent = 'editado';
+                         messageFooter.insertBefore(editedSpan, messageFooter.firstChild);
+                     }
+                 }
+             }, (error) => {
+                 console.error(`[${userName}] Error in realtime listener for message changes (child_changed):`, error);
+             });
+
+             // Listener para eliminar mensajes individuales del DOM en tiempo real
+             messagesRef.on('child_removed', (data) => {
+                 const messageId = data.key;
+                 const messageElement = chatBox.querySelector(`[data-message-id="${messageId}"]`);
+                 if (messageElement) {
+                     messageElement.remove();
+                     console.log(`[${userName}] Message ${messageId} removed from DOM.`);
+                 }
+             });
+
+             // Listener para reflejar borrados masivos del nodo 'messages' (por ejemplo, al limpiar el chat)
+             messagesRef.on('value', (snapshot) => {
+                 // Si el nodo no existe o queda vacío, limpiar el DOM del chat
+                 if (!snapshot.exists()) {
+                     clearChatUI();
+                 }
+             }, (error) => {
+                 console.error(`[${userName}] Error in realtime listener for messages (value):`, error);
+             });
+        }
+
+        function clearChatUI(){
+            chatBox.innerHTML = '';
+            typingIndicator.textContent = '';
+            // Reset del estado de respuesta si estaba activo
+            replyingToMessage = null;
+            replyPreview.style.display = 'none';
+            replyNameSpan.textContent = '';
+            replyTextSpan.textContent = '';
+            // Ocultar selector/menús abiertos
+            emojiPicker.style.display = 'none';
+            settingsDropdown.style.display = 'none';
+            // Ajustar padding por si cambia la altura del área fija
+            adjustChatBoxPadding();
+        }
+
+
+        // --- Configurar Intersection Observer ---
+        function setupMessageObserver() {
+            const options = {
+                root: chatBox, // Observar dentro del chatBox
+                rootMargin: '0px',
+                threshold: 0.5 // El mensaje se considera visible si al menos el 50% está en el viewport
+            };
+
+            messageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    // Si el mensaje es visible (intersecting) y es un mensaje recibido por este usuario
+                    if (entry.isIntersecting && entry.target.classList.contains('received')) {
+                        const messageElement = entry.target;
+                        const messageId = messageElement.dataset.messageId;
+                        // Obtener el estado actual del mensaje de la base de datos para evitar escrituras innecesarias
+                        messagesRef.child(messageId).once('value', (snapshot) => {
+                            const messageData = snapshot.val();
+                            // Mark as read only if the status is not already 'read'
+                            if (messageData && messageData.status !== 'read') {
+                                console.log(`[${userName}] Message ${messageId} is now visible. Marking as read.`);
+                                messagesRef.child(messageId).update({ status: 'read' })
+                                    .then(() => console.log(`[${userName}] Message ${messageId} marked as read successfully via Observer.`))
+                                    .catch(error => console.error(`[${userName}] Error marking message ${messageId} as read via Observer:`, error));
+                            } else {
+                                console.log(`[${userName}] Message ${messageId} is visible but already read or not found.`);
+                            }
+                        });
+                        // Dejar de observar este mensaje una vez que se marca como leído
+                        observer.unobserve(messageElement);
+                    }
+                });
+            }, options);
+             console.log(`[${userName}] Intersection Observer configured.`);
+        }
+
+
+        // Función para mostrar un mensaje en el DOM
+        function displayMessage(msg, messageId) {
+            console.log(`[${userName}] Displaying message:`, msg, "ID:", messageId); // Debugging log con nombre de usuario
+
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('message');
+            messageElement.dataset.messageId = messageId; // Almacenar el ID del mensaje en el elemento DOM
+
+            // Añadir clase 'sent' o 'received'
+            if (msg.name === userName) {
+                messageElement.classList.add('sent');
+                 console.log(`[${userName}] Message ${messageId} is SENT. Initial status: ${msg.status}`); // Log initial status for sent message
+            } else {
+                messageElement.classList.add('received');
+                 console.log(`[${userName}] Message ${messageId} is RECEIVED from ${msg.name}.`); // Debugging log con nombre de usuario
+                // La lógica para marcar como leído ahora está en el Intersection Observer
+            }
+
+            // Crear elementos para el nombre y contenido
+            const nameSpan = document.createElement('span');
+            nameSpan.classList.add('name');
+            /* Solo mostrar el nombre si no es el mensaje del usuario actual (opcional, estilo WhatsApp) */
+            if (msg.name !== userName) {
+               nameSpan.textContent = msg.name + ': ';
+            } else {
+               nameSpan.textContent = ''; // No mostrar el nombre en mensajes propios
+            }
+
+            // Crear el contenedor para el texto, hora y checkmarks
+            const messageFooter = document.createElement('div');
+            messageFooter.classList.add('message-footer');
+
+            // Crear elementos para el texto y timestamp
+            const textSpan = document.createElement('span');
+            textSpan.classList.add('text');
+            textSpan.textContent = msg.text || '';
+            console.log(`[${userName}] textSpan created for message ${messageId}. Content: "${textSpan.textContent}"`); // Debugging log: contenido del texto
+
+            // --- Aplicar estilos inline para asegurar visibilidad y color ---
+            // Estos estilos inline tienen alta prioridad y deberían forzar la visibilidad y color.
+            textSpan.style.visibility = 'visible';
+            textSpan.style.display = 'block'; // O 'inline-block' si prefieres
+            if (msg.name === userName) {
+                textSpan.style.color = 'white'; // Color blanco para mensajes enviados
+            } else {
+                textSpan.style.color = '#1c1c1e'; // Color oscuro para mensajes recibidos
+            }
+            console.log(`[${userName}] textSpan for message ${messageId} inline styles applied -> Color: ${textSpan.style.color}, Visibility: ${textSpan.style.visibility}, Display: ${textSpan.style.display}`); // Log inline styles
+
+
+            const timestampSpan = document.createElement('span');
+            timestampSpan.classList.add('timestamp');
+            timestampSpan.textContent = formatTimestamp(msg.timestamp); // Formatear y mostrar hora
+
+
+            // Añadir nombre al elemento del mensaje si no es el usuario actual
+            if (msg.name !== userName) {
+                 messageElement.appendChild(nameSpan);
+            }
+
+            // --- Mostrar contenido de la respuesta si existe ---
+            if (msg.replyTo) {
+                const replyContentDiv = document.createElement('div');
+                replyContentDiv.classList.add('reply-content');
+
+                const replyName = document.createElement('span');
+                replyName.classList.add('reply-name');
+                replyName.textContent = msg.replyTo.name + ':';
+
+                const replyText = document.createElement('span');
+                replyText.classList.add('reply-text');
+                replyText.textContent = msg.replyTo.content;
+
+                replyContentDiv.appendChild(replyName);
+                replyContentDiv.appendChild(replyText);
+                messageElement.appendChild(replyContentDiv);
+            }
+            /* --- Fin de mostrar contenido de respuesta --- */
+
+            // --- Renderizar según tipo de mensaje ---
+            if (msg.type === 'image') {
+                const age = Date.now() - (msg.timestamp || 0);
+                const TWENTY_FOUR_H = 24 * 60 * 60 * 1000;
+                if (!msg.imageData || age >= TWENTY_FOUR_H) {
+                    // Imagen expirada
+                    const placeholder = document.createElement('div');
+                    placeholder.classList.add('image-expired-placeholder');
+                    placeholder.textContent = '📷 Imagen expirada (24h)';
+                    messageElement.appendChild(placeholder);
+                } else {
+                    const wrapper = document.createElement('div');
+                    wrapper.classList.add('image-wrapper');
+
+                    const img = document.createElement('img');
+                    img.classList.add('message-image');
+                    img.src = msg.imageData;
+                    img.alt = 'Imagen';
+                    img.onclick = () => {
+                        const w = window.open('');
+                        w.document.write(`<img src="${msg.imageData}" style="max-width:100%;height:auto;">`);
+                    };
+                    wrapper.appendChild(img);
+
+                    // Badge con tiempo restante
+                    const badge = document.createElement('div');
+                    badge.classList.add('image-expiry-badge');
+                    const hoursLeft = Math.max(0, Math.ceil((TWENTY_FOUR_H - age) / (60 * 60 * 1000)));
+                    badge.textContent = `⏳ ${hoursLeft}h restantes`;
+                    wrapper.appendChild(badge);
+
+                    // Botón descargar
+                    const dlBtn = document.createElement('button');
+                    dlBtn.classList.add('image-download-btn');
+                    dlBtn.textContent = '💾';
+                    dlBtn.title = 'Guardar imagen';
+                    dlBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        const a = document.createElement('a');
+                        a.href = msg.imageData;
+                        a.download = `chat_img_${messageId}.jpg`;
+                        a.click();
+                    };
+                    wrapper.appendChild(dlBtn);
+
+                    messageElement.appendChild(wrapper);
+                }
+            } else if (msg.type === 'audio' && msg.audioData) {
+                // Custom audio player
+                const playerDiv = document.createElement('div');
+                playerDiv.classList.add('audio-player-custom');
+
+                const audioEl = document.createElement('audio');
+                audioEl.preload = 'metadata';
+                audioEl.src = msg.audioData;
+
+                const playBtn = document.createElement('button');
+                playBtn.classList.add('audio-play-btn');
+                playBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6,3 20,12 6,21"/></svg>';
+
+                const trackDiv = document.createElement('div');
+                trackDiv.classList.add('audio-track');
+
+                const progressBar = document.createElement('input');
+                progressBar.type = 'range';
+                progressBar.classList.add('audio-progress-bar');
+                progressBar.min = '0';
+                progressBar.max = '100';
+                progressBar.value = '0';
+                progressBar.step = '0.1';
+
+                const timeSpanRow = document.createElement('div');
+                timeSpanRow.style.display = 'flex';
+                timeSpanRow.style.justifyContent = 'space-between';
+                const currentTime = document.createElement('span');
+                currentTime.classList.add('audio-time');
+                currentTime.textContent = '0:00';
+                const durationSpan = document.createElement('span');
+                durationSpan.classList.add('audio-time');
+                durationSpan.textContent = '0:00';
+                timeSpanRow.appendChild(currentTime);
+                timeSpanRow.appendChild(durationSpan);
+
+                trackDiv.appendChild(progressBar);
+                trackDiv.appendChild(timeSpanRow);
+
+                playerDiv.appendChild(playBtn);
+                playerDiv.appendChild(trackDiv);
+                messageElement.appendChild(playerDiv);
+
+                const fmtTime = (s) => {
+                    if (isNaN(s)) return '0:00';
+                    const m = Math.floor(s / 60);
+                    const sec = Math.floor(s % 60);
+                    return m + ':' + (sec < 10 ? '0' : '') + sec;
+                };
+
+                audioEl.addEventListener('loadedmetadata', () => {
+                    durationSpan.textContent = fmtTime(audioEl.duration);
+                });
+                audioEl.addEventListener('timeupdate', () => {
+                    if (audioEl.duration) {
+                        progressBar.value = (audioEl.currentTime / audioEl.duration) * 100;
+                        currentTime.textContent = fmtTime(audioEl.currentTime);
+                    }
+                });
+                audioEl.addEventListener('ended', () => {
+                    playBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6,3 20,12 6,21"/></svg>';
+                    progressBar.value = '0';
+                    currentTime.textContent = '0:00';
+                });
+                playBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (audioEl.paused) {
+                        audioEl.play();
+                        playBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="3" width="4" height="18" rx="1"/><rect x="15" y="3" width="4" height="18" rx="1"/></svg>';
+                    } else {
+                        audioEl.pause();
+                        playBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6,3 20,12 6,21"/></svg>';
+                    }
+                });
+                progressBar.addEventListener('input', (e) => {
+                    e.stopPropagation();
+                    if (audioEl.duration) {
+                        audioEl.currentTime = (progressBar.value / 100) * audioEl.duration;
+                    }
+                });
+                progressBar.addEventListener('click', (e) => e.stopPropagation());
+            } else if (msg.type === 'video') {
+                const age = Date.now() - (msg.timestamp || 0);
+                const TWENTY_FOUR_H = 24 * 60 * 60 * 1000;
+                if (!msg.videoData || age >= TWENTY_FOUR_H) {
+                    const placeholder = document.createElement('div');
+                    placeholder.classList.add('doc-expired-placeholder');
+                    placeholder.textContent = '🎬 Video expirado (24h)';
+                    messageElement.appendChild(placeholder);
+                } else {
+                    const wrapper = document.createElement('div');
+                    wrapper.classList.add('video-wrapper');
+
+                    const vid = document.createElement('video');
+                    vid.classList.add('message-video');
+                    vid.src = msg.videoData;
+                    vid.controls = true;
+                    vid.preload = 'metadata';
+                    vid.setAttribute('playsinline', '');
+                    vid.onclick = (e) => e.stopPropagation();
+                    wrapper.appendChild(vid);
+
+                    const hoursLeft = Math.max(0, Math.ceil((TWENTY_FOUR_H - age) / (60 * 60 * 1000)));
+                    const badge = document.createElement('div');
+                    badge.classList.add('image-expiry-badge');
+                    badge.textContent = `⏳ ${hoursLeft}h`;
+                    wrapper.appendChild(badge);
+
+                    const dlBtn = document.createElement('button');
+                    dlBtn.classList.add('image-download-btn');
+                    dlBtn.textContent = '💾';
+                    dlBtn.title = 'Guardar video';
+                    dlBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        const a = document.createElement('a');
+                        a.href = msg.videoData;
+                        a.download = `chat_vid_${messageId}.mp4`;
+                        a.click();
+                    };
+                    wrapper.appendChild(dlBtn);
+                    messageElement.appendChild(wrapper);
+                }
+            } else if (msg.type === 'document') {
+                const age = Date.now() - (msg.timestamp || 0);
+                const TWENTY_FOUR_H = 24 * 60 * 60 * 1000;
+                if (!msg.docData || age >= TWENTY_FOUR_H) {
+                    const placeholder = document.createElement('div');
+                    placeholder.classList.add('doc-expired-placeholder');
+                    placeholder.textContent = '📄 Documento expirado (24h)';
+                    messageElement.appendChild(placeholder);
+                } else {
+                    const extMap = { pdf: '📕', doc: '📘', docx: '📘', xls: '📗', xlsx: '📗', ppt: '📙', pptx: '📙', txt: '📝', zip: '📦', rar: '📦' };
+                    const fileName = msg.docName || 'documento';
+                    const ext = fileName.split('.').pop().toLowerCase();
+                    const icon = extMap[ext] || '📄';
+                    const sizeText = msg.docSize ? (msg.docSize > 1024 * 1024 ? (msg.docSize / (1024 * 1024)).toFixed(1) + ' MB' : (msg.docSize / 1024).toFixed(0) + ' KB') : '';
+
+                    const docDiv = document.createElement('div');
+                    docDiv.classList.add('doc-attachment');
+
+                    const iconDiv = document.createElement('div');
+                    iconDiv.classList.add('doc-icon');
+                    iconDiv.textContent = icon;
+
+                    const infoDiv = document.createElement('div');
+                    infoDiv.classList.add('doc-info');
+                    const nameSpan = document.createElement('span');
+                    nameSpan.classList.add('doc-name');
+                    nameSpan.textContent = fileName;
+                    infoDiv.appendChild(nameSpan);
+
+                    if (sizeText) {
+                        const hoursLeft = Math.max(0, Math.ceil((TWENTY_FOUR_H - age) / (60 * 60 * 1000)));
+                        const sizeSpan = document.createElement('span');
+                        sizeSpan.classList.add('doc-size');
+                        sizeSpan.textContent = `${sizeText} · ⏳ ${hoursLeft}h`;
+                        infoDiv.appendChild(sizeSpan);
+                    }
+
+                    docDiv.appendChild(iconDiv);
+                    docDiv.appendChild(infoDiv);
+
+                    docDiv.onclick = (e) => {
+                        e.stopPropagation();
+                        const a = document.createElement('a');
+                        a.href = msg.docData;
+                        a.download = fileName;
+                        a.click();
+                    };
+                    messageElement.appendChild(docDiv);
+                }
+            } else {
+
+            // --- Lógica para detectar y mostrar previsualización de videos o enlaces ---
+            let contentElement = null; // Elemento que contendrá la previsualización o el texto del enlace
+
+            // 1. Intentar detectar YouTube
+            const youtubeUrlMatch = msg.text ? msg.text.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com|youtu\.be)\/(?:watch\?v=)?([a-zA-Z0-9_-]+)/) : null;
+            if (youtubeUrlMatch && youtubeUrlMatch[1]) {
+                const videoId = youtubeUrlMatch[1];
+                const iframe = document.createElement('iframe');
+                iframe.src = `https://www.youtube.com/embed/${videoId}`; // URL de incrustación estándar de YouTube
+                iframe.setAttribute('allowfullscreen', ''); // Permitir pantalla completa
+                iframe.setAttribute('loading', 'lazy'); // Carga diferida
+                contentElement = iframe;
+                console.log(`[${userName}] YouTube video detected for message ${messageId}. Video ID: ${videoId}`);
+            } else {
+                // 2. Intentar detectar Facebook Video (regex mejorada, pero puede no ser exhaustiva)
+                const facebookUrlMatch = msg.text ? msg.text.match(/(?:https?:\/\/)?(?:www\.)?(?:facebook\.com)\/(?:watch\/)?(?:v=)?(?:videos\/)?([0-9]+)(?:\/)?/) : null;
+                 if (facebookUrlMatch && facebookUrlMatch[1]) {
+                     const videoId = facebookUrlMatch[1];
+                     const iframe = document.createElement('iframe');
+                     // URL de incrustación básica de Facebook (puede requerir ajustes dependiendo de la configuración)
+                     iframe.src = `https://www.facebook.com/plugins/video.php?href=https%3A%2F%2Fwww.facebook.com%2Fwatch%2F%3Fv%3D${videoId}&show_text=0&width=560`;
+                     iframe.setAttribute('allowfullscreen', '');
+                     iframe.setAttribute('loading', 'lazy');
+                     iframe.setAttribute('scrolling', 'no');
+                     iframe.setAttribute('frameborder', '0');
+                     iframe.setAttribute('allow', 'autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share');
+                     contentElement = iframe;
+                     console.log(`[${userName}] Facebook video detected for message ${messageId}. Video ID: ${videoId}`);
+                 } else {
+                     // 3. Intentar detectar enlaces directos a archivos de video
+                     const videoFileMatch = msg.text ? msg.text.match(/(https?:\/\/[^\s]+\.(mp4|webm|ogg))/) : null;
+                     if (videoFileMatch && videoFileMatch[1]) {
+                         const videoUrl = videoFileMatch[1];
+                         const videoElement = document.createElement('video');
+                         videoElement.src = videoUrl;
+                         videoElement.setAttribute('controls', ''); // Mostrar controles de video
+                         videoElement.setAttribute('preload', 'metadata'); // Cargar metadatos primero
+                         contentElement = videoElement;
+                         console.log(`[${userName}] Direct video file detected for message ${messageId}. URL: ${videoUrl}`);
+                     } else {
+                         // 4. Si no es un video soportado, mostrar el texto del mensaje con enlaces clicables
+                         // Detectar URLs generales en el texto y convertirlas en enlaces clicables
+                         const urlRegex = /(https?:\/\/[^\s]+)/g;
+                         const textWithLinks = (msg.text || '').replace(urlRegex, '<a href="$1" target="_blank">$1</a>');
+                         textSpan.innerHTML = textWithLinks; // Usar innerHTML para renderizar el enlace
+                         contentElement = textSpan; // El texto con enlaces es el contenido principal
+                         console.log(`[${userName}] No supported video detected for message ${messageId}. Displaying text with links.`);
+                     }
+                 }
+            }
+
+            // Si se encontró una previsualización de video, crear un contenedor y añadirla
+            if (contentElement && (contentElement.tagName === 'IFRAME' || contentElement.tagName === 'VIDEO')) {
+                const videoPreviewContainer = document.createElement('div');
+                videoPreviewContainer.classList.add('video-preview-container');
+                videoPreviewContainer.appendChild(contentElement);
+                messageElement.appendChild(videoPreviewContainer); // Añadir el contenedor de previsualización al messageElement
+
+                // Después de añadir la previsualización, añadir el texto original si no es solo la URL
+                 if (msg.text && !youtubeUrlMatch && !facebookUrlMatch && !videoFileMatch) {
+                     // Si el mensaje contenía texto además de la URL, añadir el textSpan original (ahora con enlaces clicables)
+                     messageElement.appendChild(textSpan);
+                     console.log(`[${userName}] Adding original textSpan after video preview for message ${messageId}.`);
+                 } else if (msg.text && (youtubeUrlMatch || facebookUrlMatch || videoFileMatch)) {
+                     // Si el mensaje es solo la URL del video, no es necesario añadir el textSpan de nuevo
+                     console.log(`[${userName}] Message is only a video URL, not adding textSpan again for message ${messageId}.`);
+                 }
+
+
+            } else if (contentElement && contentElement.classList.contains('text')) {
+                 // Si el contenido principal es el textSpan (con enlaces clicables)
+                 messageElement.appendChild(contentElement); // Añadir el textSpan (que ya tiene el contenido)
+                 console.log(`[${userName}] Adding textSpan as main content for message ${messageId}.`);
+            }
+
+            } // Cierre del else (tipo texto) del if image/audio
+
+
+            // --- Añadir hora y checkmarks al footer ---
+            // Mostrar etiqueta (editado) si aplica
+            if (msg.edited) {
+                const editedSpan = document.createElement('span');
+                editedSpan.classList.add('edited-label');
+                editedSpan.textContent = 'editado';
+                messageFooter.appendChild(editedSpan);
+            }
+
+            messageFooter.appendChild(timestampSpan); // Añadir la hora
+
+            // Añadir checkmarks si es un mensaje enviado por el usuario actual
+            if (msg.name === userName) {
+                 const checkmarksSpan = document.createElement('span');
+                 checkmarksSpan.classList.add('checkmarks');
+                 // Mostrar un check simple si el estado es 'sent', doble si es 'read'
+                 checkmarksSpan.textContent = msg.status === 'read' ? '✓✓' : '✓'; // Unicode checkmarks
+                 messageFooter.appendChild(checkmarksSpan); // Añadir los checkmarks al footer
+                 console.log(`[${userName}] Displaying checkmarks for SENT message ${messageId}: ${checkmarksSpan.textContent}, based on status "${msg.status}"`); // Debugging log con nombre de usuario
+            } else {
+                 console.log(`[${userName}] Not displaying checkmarks for RECEIVED message ${messageId}.`); // Debugging log con nombre de usuario
+            }
+
+            messageElement.appendChild(messageFooter); // Asegurarse de que el footer se añade al messageElement
+            console.log(`[${userName}] messageFooter appended to messageElement for message ${messageId}.`); // Log after appending messageFooter
+
+            chatBox.appendChild(messageElement);
+            console.log(`[${userName}] messageElement appended to chatBox for message ${messageId}.`); // Log after appending messageElement
+            console.log(`[${userName}] chatBox after appending message ${messageId}:`, chatBox.innerHTML); // Log chatBox content
+
+
+            // Después de añadir el messageElement al DOM, podemos obtener los estilos computados del textSpan
+            // Aumentar el retraso para dar más tiempo a la renderización
+            setTimeout(() => {
+                 // Verificar si textSpan existe antes de intentar obtener estilos computados
+                 if (textSpan && textSpan.parentElement) { // Asegurarse de que textSpan está en el DOM
+                     const computedStyle = window.getComputedStyle(textSpan);
+                     console.log(`[${userName}] textSpan for message ${messageId} computed style -> Color: ${computedStyle.color}, Visibility: ${computedStyle.visibility}, Display: ${computedStyle.display}`);
+                 } else {
+                     console.log(`[${userName}] textSpan not found in DOM for message ${messageId}. Skipping computed style log.`);
+                 }
+
+
+                 // Verificar también el estilo computado del messageFooter
+                 const computedFooterStyle = window.getComputedStyle(messageFooter);
+                 console.log(`[${userName}] messageFooter for message ${messageId} computed style -> Display: ${computedFooterStyle.display}, Visibility: ${computedFooterStyle.visibility}, Opacity: ${computedFooterStyle.opacity}`);
+
+                 // Observar el mensaje si es un mensaje recibido
+                 if (messageElement.classList.contains('received')) {
+                     messageObserver.observe(messageElement);
+                     console.log(`[${userName}] Observing received message ${messageId} with Intersection Observer.`);
+                 }
+
+
+            }, 500); // Retraso aumentado a 500ms
+
+
+             // Sonido, vibración y notificación para mensajes entrantes
+             if (initialLoadComplete && msg.name !== userName) {
+                 playNotificationSound();
+                 // Vibrar el dispositivo (200ms)
+                 if (navigator.vibrate) {
+                     navigator.vibrate(200);
+                 }
+                 // Notificación del sistema (siempre intentar)
+                 showBrowserNotification(msg.name, msg.text || '📎 Archivo');
+             }
+
+             // Añadir listener de clic: menú de acciones para todos los mensajes
+             messageElement.addEventListener('click', (e) => {
+                 e.stopPropagation();
+                 showMessageActions(messageId, msg, messageElement);
+             });
+        }
+
+        // --- Menú de acciones para mensajes ---
+        function showMessageActions(messageId, msg, element) {
+            // Cerrar menú previo
+            const existing = document.querySelector('.msg-actions-menu');
+            if (existing) { existing.remove(); return; }
+
+            const menu = document.createElement('div');
+            menu.classList.add('msg-actions-menu');
+
+            // Responder (para todos)
+            const replyBtn = document.createElement('button');
+            replyBtn.textContent = '↩️ Responder';
+            replyBtn.onclick = (e) => { e.stopPropagation(); menu.remove(); startReply({ id: messageId, name: msg.name, text: msg.text || '' }); };
+            menu.appendChild(replyBtn);
+
+            // Editar y Eliminar solo para mensajes propios
+            if (msg.name === userName) {
+                const editBtn = document.createElement('button');
+                editBtn.textContent = '✏️ Editar';
+                editBtn.onclick = async (e) => {
+                    e.stopPropagation(); menu.remove();
+                    const currentText = element.querySelector('.text') ? element.querySelector('.text').textContent : msg.text;
+                    const newText = await showPromptModal('Editar mensaje', currentText);
+                    if (newText && newText !== currentText) {
+                        messagesRef.child(messageId).update({ text: newText, edited: true });
+                    }
+                };
+                menu.appendChild(editBtn);
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.classList.add('delete-action');
+                deleteBtn.textContent = '🗑️ Eliminar';
+                deleteBtn.onclick = (e) => { e.stopPropagation(); menu.remove(); messagesRef.child(messageId).remove(); };
+                menu.appendChild(deleteBtn);
+            }
+
+            // Posicionar con fixed en base a la posición del mensaje en pantalla
+            document.body.appendChild(menu);
+            const rect = element.getBoundingClientRect();
+            const menuH = menu.offsetHeight;
+            const isSent = msg.name === userName;
+
+            // Vertical: si hay espacio arriba, mostrar arriba; si no, abajo
+            if (rect.top - menuH - 4 > 0) {
+                menu.style.top = (rect.top - menuH - 4) + 'px';
+            } else {
+                menu.style.top = (rect.bottom + 4) + 'px';
+            }
+
+            // Horizontal: alinear al lado del mensaje
+            if (isSent) {
+                menu.style.right = (window.innerWidth - rect.right) + 'px';
+            } else {
+                menu.style.left = rect.left + 'px';
+            }
+
+            // Cerrar al tocar fuera
+            const closeMenu = (ev) => {
+                if (!menu.contains(ev.target)) {
+                    menu.remove();
+                    document.removeEventListener('click', closeMenu, true);
+                    document.removeEventListener('touchstart', closeMenu, true);
+                }
+            };
+            setTimeout(() => {
+                document.addEventListener('click', closeMenu, true);
+                document.addEventListener('touchstart', closeMenu, true);
+            }, 10);
+        }
+
+        // Función para reproducir el sonido de notificación
+        function playNotificationSound() {
+             if (notificationSound && audioUnlocked) { // Solo reproducir si el audio está desbloqueado
+                 notificationSound.currentTime = 0; // Reiniciar el sonido si ya se está reproduciendo
+                 notificationSound.play().catch(error => {
+                     console.error("Error al reproducir el sonido:", error);
+                     // Esto a menudo ocurre si el navegador bloquea el autoplay
+                 });
+             } else if (!audioUnlocked) {
+                 console.log("Audio not unlocked yet. Cannot play sound.");
+             }
+        }
+
+        // Solicitar permiso de notificaciones al entrar al chat
+        function requestNotificationPermission() {
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission().then(perm => {
+                    console.log('Notification permission:', perm);
+                });
+            }
+        }
+
+        // Mostrar notificación del sistema (usa Service Worker para compatibilidad con WebView)
+        function showBrowserNotification(senderName, messageText) {
+            if (!('Notification' in window) || Notification.permission !== 'granted') return;
+            // Intentar vía Service Worker (funciona en WebView/APK)
+            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                navigator.serviceWorker.ready.then(reg => {
+                    reg.showNotification('FACBA Chat', {
+                        body: `${senderName}: ${messageText}`,
+                        icon: './icon-192.png',
+                        tag: 'facba-chat-msg',
+                        renotify: true,
+                        vibrate: [200, 100, 200]
+                    });
+                }).catch(e => console.log('SW notification error:', e));
+            } else {
+                // Fallback: Notification API directa
+                try {
+                    const notif = new Notification('FACBA Chat', {
+                        body: `${senderName}: ${messageText}`,
+                        icon: './icon-192.png',
+                        tag: 'facba-chat-msg',
+                        renotify: true
+                    });
+                    notif.onclick = () => { window.focus(); notif.close(); };
+                    setTimeout(() => notif.close(), 5000);
+                } catch (e) {
+                    console.log('Notification fallback error:', e);
+                }
+            }
+        }
+
+        // Función para intentar desbloquear el audio con una interacción del usuario
+        function unlockAudio() {
+            if (notificationSound && notificationSound.readyState >= 2 && !audioUnlocked) { // readyState 2 means enough data is available
+                notificationSound.volume = 0; // Set volume to 0
+                const playPromise = notificationSound.play();
+
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        // Playback started successfully
+                        notificationSound.pause(); // Pause immediately
+                        notificationSound.volume = 1; // Restore volume
+                        audioUnlocked = true; // Mark audio as unlocked
+                        console.log("Audio unlocked successfully.");
+                        // Remove this listener after first interaction
+                        document.removeEventListener('click', unlockAudio);
+                        document.removeEventListener('touchstart', unlockAudio);
+                        sendButton.removeEventListener('click', unlockAudio); // Remove from send button too
+                    }).catch(error => {
+                        // Playback failed, likely due to user interaction requirement
+                        console.error("Audio unlock failed:", error);
+                        audioUnlocked = false; // Keep audio locked
+                    });
+                }
+            } else if (audioUnlocked) {
+                 console.log("Audio already unlocked.");
+                 // Remove listeners if already unlocked
+                 document.removeEventListener('click', unlockAudio);
+                 document.removeEventListener('touchstart', unlockAudio);
+                 sendButton.removeEventListener('click', unlockAudio); // Remove from send button too
+            } else {
+                 console.log("Notification sound not ready or not found.");
+            }
+        }
+
+
+        // --- Custom Modal Helpers ---
+        const lockOverlay = document.getElementById('lock-overlay');
+        const passwordModal = document.getElementById('password-modal');
+        const pwInput = document.getElementById('pw-modal-input');
+        const pwError = document.getElementById('pw-modal-error');
+        const pwTitle = document.getElementById('pw-modal-title');
+        const promptModal = document.getElementById('prompt-modal');
+        const promptInput = document.getElementById('prompt-modal-input');
+        const promptTitle = document.getElementById('prompt-modal-title');
+        const lockChatButton = document.getElementById('lock-chat-button');
+
+        // Show a password modal and return a promise that resolves true/false
+        function showPasswordModal(title, correctPin){
+            const pinToCheck = correctPin || CLEAR_CHAT_PASSWORD;
+            return new Promise(resolve => {
+                pwTitle.textContent = title || 'Ingresa la clave';
+                pwInput.value = '';
+                pwError.textContent = '';
+                passwordModal.classList.add('active');
+                pwInput.focus();
+
+                function cleanup(){ passwordModal.classList.remove('active'); pwInput.removeEventListener('keypress', onKey); }
+                function onKey(e){ if(e.key==='Enter') document.getElementById('pw-modal-ok').click(); }
+                pwInput.addEventListener('keypress', onKey);
+
+                document.getElementById('pw-modal-ok').onclick = () => {
+                    const val = pwInput.value.trim();
+                    if(val === pinToCheck){
+                        cleanup(); resolve(true);
+                    } else {
+                        pwError.textContent = 'Clave incorrecta';
+                        pwInput.value = '';
+                        pwInput.focus();
+                    }
+                };
+                document.getElementById('pw-modal-cancel').onclick = () => { cleanup(); resolve(false); };
+            });
+        }
+
+        // Show a text prompt modal (replaces browser prompt)
+        function showPromptModal(title, placeholder){
+            return new Promise(resolve => {
+                promptTitle.textContent = title || 'Ingresa un valor';
+                promptInput.value = '';
+                promptInput.placeholder = placeholder || '';
+                promptModal.classList.add('active');
+                promptInput.focus();
+
+                function cleanup(){ promptModal.classList.remove('active'); promptInput.removeEventListener('keypress', onKey); }
+                function onKey(e){ if(e.key==='Enter') document.getElementById('prompt-modal-ok').click(); }
+                promptInput.addEventListener('keypress', onKey);
+
+                document.getElementById('prompt-modal-ok').onclick = () => { const v = promptInput.value.trim(); cleanup(); resolve(v || null); };
+                document.getElementById('prompt-modal-cancel').onclick = () => { cleanup(); resolve(null); };
+            });
+        }
+
+
+        // --- Lógica de BLOQUEO GLOBAL (Firebase RTDB) ---
+        function setupChatLockListener(){
+            chatLockRef.on('value', (snapshot) => {
+                const data = snapshot.val();
+                const isLocked = data && data.locked === true;
+                if(isLocked){
+                    lockOverlay.classList.add('active');
+                    console.log('Chat bloqueado globalmente por:', data.lockedBy || 'desconocido');
+                } else {
+                    lockOverlay.classList.remove('active');
+                    console.log('Chat desbloqueado.');
+                }
+            });
+        }
+
+        lockChatButton.addEventListener('click', () => {
+            settingsDropdown.style.display = 'none';
+            chatLockRef.set({ locked: true, lockedBy: userName || 'admin', lockedAt: firebase.database.ServerValue.TIMESTAMP })
+                .then(() => console.log('Bloqueo activado globalmente'))
+                .catch(err => console.error('Error al bloquear:', err));
+        });
+
+        // Ayuda = desbloquear con clave
+        document.getElementById('lock-help-btn').addEventListener('click', async () => {
+            const ok = await showPasswordModal('Ingresa la clave para desbloquear');
+            if(ok){
+                chatLockRef.set({ locked: false })
+                    .then(() => console.log('Chat desbloqueado globalmente'))
+                    .catch(err => console.error('Error al desbloquear:', err));
+            }
+        });
+
+        // Más opciones = borrar chat con clave
+        document.getElementById('lock-more-btn').addEventListener('click', async () => {
+            const ok = await showPasswordModal('Ingresa la clave para borrar el chat');
+            if(ok){
+                try {
+                    await messagesRef.remove();
+                    console.log('Chat limpiado desde bloqueo');
+                    clearChatUI();
+                    await chatLockRef.set({ locked: false });
+                } catch(err){ console.error('Error al limpiar chat:', err); }
+            }
+        });
+
+
+        // --- Lógica para Limpiar Chat con Clave (Realtime Database) ---
+        clearChatButton.addEventListener('click', async () => {
+            settingsDropdown.style.display = 'none';
+            const ok = await showPasswordModal('Ingresa la clave para limpiar el chat');
+            if(ok){
+                messagesRef.remove()
+                    .then(() => {
+                        console.log("Chat limpiado exitosamente en Realtime Database!");
+                        clearChatUI();
+                    })
+                    .catch((error) => {
+                        console.error("Error al limpiar el chat en Realtime Database:", error);
+                    });
+            }
+        });
+
+        // --- Lógica para Cambiar Nombre ---
+        changeNameButton.addEventListener('click', async () => {
+            settingsDropdown.style.display = 'none';
+            const newName = await showPromptModal('Ingresa tu nuevo nombre', 'Nuevo nombre');
+            if (newName && newName !== userName) {
+                userName = newName;
+                localStorage.setItem('chatName', userName);
+                console.log(`Nombre cambiado a: ${userName}`);
+                location.reload();
+            }
+        });
+
+        // --- Lógica para Cambiar PIN del Canal ---
+        document.getElementById('change-pin-button').addEventListener('click', async () => {
+            settingsDropdown.style.display = 'none';
+            if (!activeChannel) return;
+            const channelConfigRef = database.ref(`channels/${activeChannel}/config`);
+            const snapshot = await channelConfigRef.once('value');
+            if (!snapshot.exists()) return;
+            const config = snapshot.val();
+            const ok = await showPasswordModal('Ingresa el PIN actual del canal', config.pin);
+            if (!ok) return;
+            const newPin = await showPromptModal('Ingresa el nuevo PIN', 'Nuevo PIN');
+            if (!newPin) return;
+            await channelConfigRef.update({ pin: newPin });
+            console.log('PIN del canal actualizado exitosamente');
+        });
+
+        // --- Lógica para Cambiar Canal ---
+        document.getElementById('change-channel-button').addEventListener('click', () => {
+            settingsDropdown.style.display = 'none';
+            localStorage.removeItem('chatChannel');
+            location.reload();
+        });
+
+
+        // --- Lógica del Botón de Emoji y Selector ---
+
+        // Lista de emojis para el selector
+       const emojis = [
+  // Caras y personas
+  '😀', '😁', '😂', '🤣', '😃', '😄', '😅', '😆', '😉', '😊', '😋', '😎', '😍', '😘', '🥰', '😗', '😙', '😚', '☺️', '🙂', '🤗', '🤩', '🤔', '🤨', '😐', '😑', '😶', '🙄', '😏', '😣', '😥', '😮', '🤐', '😯', '😪', '😫', '🥱', '😴', '😌', '😛', '😜', '😝', '🤤', '😒', '😓', '😔', '😕', '🙃', '🤑', '😲', '☹️', '🙁', '😖', '😞', '😟', '😤', '😢', '😭', '😦', '😧', '😨', '😩', '🤯', '😬', '😰', '😱', '🥵', '🥶', '😳', '🤪', '😵', '🥴', '😠', '😡', '🤬', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '😇', '🥳', '🥺', '🤠', '🤡', '🥳', '🤫', '🤭', '🧐', '🤓', '😈', '👿', '👹', '👺', '💀', '👻', '👽', '🤖', '💩',
+  // Corazones y gestos
+  '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾', '🙈', '🙉', '🙊', '💋', '💌', '💘', '💝', '💖', '💗', '💓', '💞', '💕', '💟', '❣️', '💔', '❤️', '🧡', '💛', '💚', '💙', '💜', '🤎', '🖤', '🤍', '💯', '💢', '💥', '💫', '💦', '💨', '🕳️', '💣', '💬', '👁️‍🗨️', '🗨️', '🗯️', '💭', '💤', '👋', '🤚', '🖐️', '✋', '🖖', '👌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏'
+];
+
+        // Llenar el selector de emojis
+        emojis.forEach(emoji => {
+            const emojiSpan = document.createElement('span');
+            emojiSpan.textContent = emoji;
+            emojiPicker.appendChild(emojiSpan);
+
+            // Añadir listener para insertar el emoji en el input
+            emojiSpan.addEventListener('click', () => {
+                insertEmoji(emoji);
+                // Opcional: Ocultar el selector después de seleccionar un emoji
+                // emojiPicker.style.display = 'none';
+            });
+        });
+
+        // Función para insertar emoji en el textarea en la posición del cursor
+        function insertEmoji(emoji) {
+            const textarea = messageInput;
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const value = textarea.value;
+
+            textarea.value = value.substring(0, start) + emoji + value.substring(end);
+
+            // Mover el cursor después del emoji insertado
+            textarea.selectionStart = textarea.selectionEnd = start + emoji.length;
+
+            // Disparar un evento 'input' para que la lógica de auto-ajuste de altura y typing indicator se active
+            const event = new Event('input', { bubbles: true });
+            textarea.dispatchEvent(event);
+
+            textarea.focus(); // Mantener el foco en el textarea
+        }
+
+
+        // Listener para el botón de emoji para mostrar/ocultar el selector
+        emojiButton.addEventListener('click', (event) => {
+            // Prevenir que el clic en el botón cierre el selector inmediatamente
+            event.stopPropagation();
+             // Ocultar el dropdown de settings si está visible
+             settingsDropdown.style.display = 'none';
+
+            if (emojiPicker.style.display === 'flex') {
+                emojiPicker.style.display = 'none';
+            } else {
+                // Posicionar el selector justo encima de la barra de input
+                // bottom del selector = altura del área de input + padding/margen
+                const inputAreaHeight = bottomFixedArea.offsetHeight; // Usar la altura del contenedor fijo
+                emojiPicker.style.bottom = `${inputAreaHeight + 10}px`; // 10px de margen
+                emojiPicker.style.display = 'flex';
+            }
+        });
+
+        // Ocultar el selector de emojis y el dropdown de settings si se hace clic fuera de ellos
+        document.addEventListener('click', (event) => {
+            // Si el clic no fue dentro del selector de emojis ni en el botón de emoji
+            if (!emojiPicker.contains(event.target) && event.target !== emojiButton) {
+                emojiPicker.style.display = 'none';
+            }
+             // Si el clic no fue dentro del dropdown de settings ni en el botón de settings
+             if (!settingsDropdown.contains(event.target) && event.target !== settingsButton) {
+                 settingsDropdown.style.display = 'none';
+             }
+        });
+
+
+        // --- Lógica para Ajustar Layout con Teclado Virtual ---
+
+        // Función para ajustar el padding inferior del chatBox
+        function adjustChatBoxPadding() {
+            // Usar un pequeño retraso para asegurar que el DOM esté renderizado y las alturas sean correctas
+            setTimeout(() => {
+                 // Usar la altura del nuevo contenedor fijo
+                 const bottomAreaHeight = bottomFixedArea.offsetHeight;
+                 // Añadir un buffer más grande para asegurar espacio suficiente
+                 // Puedes ajustar este valor (80) para aumentar o disminuir el espacio inferior
+                 const newPaddingBottom = bottomAreaHeight + 80; // <--- Aquí puedes modificar el valor del buffer
+                 chatBox.style.paddingBottom = `${newPaddingBottom}px`;
+                 console.log(`[${userName}] Adjusted paddingBottom of chatBox to ${chatBox.style.paddingBottom}`); // Debugging log con nombre de usuario
+                 console.log(`[${userName}] bottomFixedArea.offsetHeight: ${bottomAreaHeight}`); // Debugging log con nombre de usuario
+                 // Intentar scrollear al final después de ajustar el padding
+                 chatBox.scrollTop = chatBox.scrollHeight;
+            }, 300); // Aumentar el retraso a 300ms
+        }
+
+
+        // Listener para el evento resize de la ventana
+        window.addEventListener('resize', adjustChatBoxPadding);
+
+        // Listener para el evento 'focus' en el input de mensaje
+        messageInput.addEventListener('focus', () => {
+             // Intentar scrollear la caja de chat al final cuando el input recibe foco
+             // Esto ayuda a asegurar que la barra de input sea visible
+             setTimeout(() => {
+                 chatBox.scrollTop = chatBox.scrollHeight;
+                 console.log(`[${userName}] Input enfocado, scrolleando chatBox al final con retraso.`); // Debugging log con nombre de usuario
+             }, 150); // Retraso para dar tiempo al layout a ajustarse
+        });
+
+
+        // --- Lógica de Responder Mensajes ---
+
+        // Función para iniciar el modo de respuesta
+        function startReply(messageData) {
+            replyingToMessage = messageData; // Almacenar los datos del mensaje
+            replyNameSpan.textContent = messageData.name + ':';
+            // Mostrar un fragmento del texto o indicar que es un archivo
+            replyTextSpan.textContent = messageData.text ? messageData.text.substring(0, 50) + (messageData.text.length > 50 ? '...' : '') : 'Archivo'; // Asumiendo solo texto por ahora
+
+            replyPreview.style.display = 'flex'; // Mostrar la vista previa
+            messageInput.focus(); // Poner el foco en el campo de mensaje
+            // Ajustar padding después de mostrar la vista previa
+            adjustChatBoxPadding();
+        }
+
+        // Función para cancelar el modo de respuesta
+        function cancelReply() {
+            replyingToMessage = null; // Limpiar la referencia al mensaje
+            replyPreview.style.display = 'none'; // Ocultar la vista previa
+            replyNameSpan.textContent = '';
+            replyTextSpan.textContent = '';
+            // Ajustar padding después de ocultar la vista previa
+            adjustChatBoxPadding();
+        }
+
+        // Listener para el botón de cancelar respuesta
+        cancelReplyButton.addEventListener('click', cancelReply);
+
+
+        // --- Lógica del Botón de Configuración y Dropdown ---
+
+        // Listener para el botón de configuración para mostrar/ocultar el dropdown
+        settingsButton.addEventListener('click', (event) => {
+            // Prevenir que el clic en el botón cierre el dropdown inmediatamente
+            event.stopPropagation();
+             // Ocultar el selector de emojis si está visible
+             emojiPicker.style.display = 'none';
+
+            if (settingsDropdown.style.display === 'flex') {
+                settingsDropdown.style.display = 'none';
+            } else {
+                // Posicionar el dropdown justo debajo y a la derecha del botón de settings
+                // Esto se maneja principalmente con CSS position: absolute y top/right
+                settingsDropdown.style.display = 'flex';
+                // La posición top y right ya están definidas en CSS, pero podrías ajustarlas dinámicamente si fuera necesario
+                // const settingsButtonRect = settingsButton.getBoundingClientRect();
+                // settingsDropdown.style.top = `${settingsButtonRect.bottom + 5}px`; // 5px debajo del botón
+                // settingsDropdown.style.right = `${window.innerWidth - settingsButtonRect.right}px`; // Alinear a la derecha del botón
+            }
+        });
+
+
+        // --- Lógica de Presencia (Usuarios en Línea) ---
+        function setupPresence() {
+             if (!userName) return;
+
+             const userPresenceRef = presenceRef.child(userName);
+             const connectedRef = database.ref('.info/connected');
+
+             // Patrón oficial de Firebase: escuchar estado de conexión
+             connectedRef.on('value', (snap) => {
+                 if (snap.val() === true) {
+                     // Cada vez que Firebase reconecta, re-registrar onDisconnect
+                     userPresenceRef.onDisconnect().remove()
+                         .then(() => {
+                             // Solo marcar presencia DESPUÉS de que onDisconnect esté listo
+                             userPresenceRef.set(true);
+                             console.log(`[${userName}] Conectado. Presencia activada.`);
+                         })
+                         .catch(error => console.error(`[${userName}] Error configuring onDisconnect:`, error));
+                 }
+             });
+
+             // Limpieza al cerrar pestaña (respaldo)
+             window.addEventListener('beforeunload', () => {
+                 userPresenceRef.remove();
+             });
+
+
+             // Escuchar cambios en el nodo de presencia para actualizar la lista de usuarios en línea
+             presenceRef.on('value', (snapshot) => {
+                 const onlineUsers = snapshot.val();
+                 const usersOnline = [];
+
+                 if (onlineUsers) {
+                     for (const name in onlineUsers) {
+                         if (onlineUsers[name] === true && name !== userName) {
+                             usersOnline.push(name);
+                         }
+                     }
+                 }
+
+                 if (usersOnline.length > 0) {
+                     onlineUsersDiv.textContent = `En línea: ${usersOnline.join(', ')}`;
+                 } else {
+                     onlineUsersDiv.textContent = 'Nadie más en línea';
+                 }
+                 console.log(`[${userName}] Online users updated: ${onlineUsersDiv.textContent}. Raw data:`, onlineUsers);
+             }, (error) => {
+                 console.error(`[${userName}] Error in presence listener:`, error);
+             });
+        }
+
+
+        // Comprobar si hay un nombre guardado en localStorage al cargar la página
+        const savedName = localStorage.getItem('chatName');
+        const savedChannelValue = localStorage.getItem('chatChannel');
+        if (savedName) {
+            nameInput.value = savedName;
+        }
+        if (savedChannelValue) {
+            channelInput.value = savedChannelValue;
+        }
+
+        // Ajustes iniciales al cargar la página
+        window.onload = function() {
+             // Si hay un nombre y canal guardados, inicializar el chat
+             const savedChannel = localStorage.getItem('chatChannel');
+             if (localStorage.getItem('chatName') && savedChannel) {
+                 userName = localStorage.getItem('chatName');
+                 activeChannel = savedChannel;
+                 setupChannelRefs(activeChannel);
+                 namePrompt.style.display = 'none';
+                 chatInterface.style.display = 'flex';
+                 document.getElementById('chat-title').textContent = activeChannel;
+                 initializeChat();
+             }
+             // Ajustar el padding inferior del chatBox al cargar
+             adjustChatBoxPadding();
+
+             // Add initial click/touch listeners to unlock audio
+             document.addEventListener('click', unlockAudio, { once: true });
+             document.addEventListener('touchstart', unlockAudio, { once: true });
+             sendButton.addEventListener('click', unlockAudio, { once: true }); // Also try on send button click
+
+
+        };
+
+        // --- Registro del Service Worker para PWA ---
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw-chat.js')
+                .then(reg => console.log('Service Worker registrado:', reg.scope))
+                .catch(err => console.error('Error al registrar Service Worker:', err));
+        }
+
+        // --- Lógica de instalación PWA (Android + iOS) ---
+        let deferredInstallPrompt = null;
+        const installBtn = document.getElementById('install-app-button');
+        const iosBanner = document.getElementById('ios-install-banner');
+        const iosBackdrop = document.getElementById('ios-install-backdrop');
+        const iosBannerClose = document.getElementById('ios-banner-close');
+
+        // Detectar iOS Safari (no standalone, no Chrome, no Firefox)
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const isIOSSafari = isIOS && /Safari/i.test(navigator.userAgent) && !/CriOS|FxiOS|OPiOS|EdgiOS/i.test(navigator.userAgent);
+        const isIOSStandalone = window.navigator.standalone === true;
+
+        function showIOSBanner() {
+            iosBanner.classList.add('show');
+            iosBackdrop.classList.add('show');
+        }
+        function hideIOSBanner() {
+            iosBanner.classList.remove('show');
+            iosBackdrop.classList.remove('show');
+        }
+        iosBannerClose.addEventListener('click', () => {
+            hideIOSBanner();
+            localStorage.setItem('ios-install-dismissed', 'true');
+        });
+        iosBackdrop.addEventListener('click', hideIOSBanner);
+
+        // Android / Chrome: beforeinstallprompt
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredInstallPrompt = e;
+            installBtn.style.display = 'block';
+            installBtn.textContent = '📲 Instalar App';
+            console.log('PWA install prompt available');
+        });
+
+        // iOS Safari: mostrar botón de instalar con guía
+        if (isIOSSafari && !isIOSStandalone) {
+            installBtn.style.display = 'block';
+            installBtn.textContent = '📲 Instalar en iPhone';
+
+            // Auto-mostrar banner la primera vez
+            if (!localStorage.getItem('ios-install-dismissed')) {
+                setTimeout(showIOSBanner, 2000);
+            }
+        }
+
+        installBtn.addEventListener('click', async () => {
+            settingsDropdown.style.display = 'none';
+            if (deferredInstallPrompt) {
+                // Android/Chrome flow
+                deferredInstallPrompt.prompt();
+                const result = await deferredInstallPrompt.userChoice;
+                console.log('Install result:', result.outcome);
+                deferredInstallPrompt = null;
+                installBtn.style.display = 'none';
+            } else if (isIOSSafari && !isIOSStandalone) {
+                // iOS flow: mostrar banner con instrucciones
+                showIOSBanner();
+            }
+        });
+
+        window.addEventListener('appinstalled', () => {
+            console.log('PWA installed successfully');
+            installBtn.style.display = 'none';
+            deferredInstallPrompt = null;
+        });
+
+        // =============================================
+        // === ENVIAR IMÁGENES (comprimir + base64) ===
+        // =============================================
+        const imageButton = document.getElementById('image-button');
+        const imageInput = document.getElementById('image-input');
+
+        imageButton.addEventListener('click', () => imageInput.click());
+
+        // Toast de notificación
+        function showToast(message, duration = 3500) {
+            let toast = document.querySelector('.toast-notification');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.classList.add('toast-notification');
+                document.body.appendChild(toast);
+            }
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), duration);
+        }
+
+        // Limpieza automática de imágenes, videos y documentos expirados (>24h)
+        function cleanupExpiredMedia() {
+            if (!messagesRef) return;
+            const cutoff = Date.now() - (24 * 60 * 60 * 1000);
+            messagesRef.orderByChild('timestamp').endAt(cutoff).once('value', (snap) => {
+                const updates = {};
+                snap.forEach(child => {
+                    const msg = child.val();
+                    if (msg.type === 'image' && msg.imageData) {
+                        updates[`${child.key}/imageData`] = null;
+                    }
+                    if (msg.type === 'video' && msg.videoData) {
+                        updates[`${child.key}/videoData`] = null;
+                    }
+                    if (msg.type === 'document' && msg.docData) {
+                        updates[`${child.key}/docData`] = null;
+                    }
+                });
+                if (Object.keys(updates).length > 0) {
+                    messagesRef.update(updates).then(() => {
+                        console.log(`Cleaned ${Object.keys(updates).length} expired media items`);
+                    });
+                }
+            });
+        }
+        // Ejecutar limpieza cada 5 minutos y al iniciar
+        setInterval(cleanupExpiredMedia, 5 * 60 * 1000);
+
+        imageInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            imageInput.value = ''; // Reset para permitir re-selección
+
+            showToast('⏳ Las imágenes se borran después de 24 horas. Guárdala con 💾 si la necesitas.');
+
+            try {
+                const base64 = await compressAndEncode(file, 800, 0.6);
+                const newMessage = {
+                    name: userName,
+                    type: 'image',
+                    imageData: base64,
+                    timestamp: Date.now(),
+                    status: 'sent'
+                };
+                if (replyingToMessage) {
+                    newMessage.replyTo = { id: replyingToMessage.id, name: replyingToMessage.name, text: replyingToMessage.text };
+                    cancelReply();
+                }
+                messagesRef.push(newMessage);
+            } catch (err) {
+                console.error('Error al enviar imagen:', err);
+                alert('Error al procesar la imagen');
+            }
+        });
+
+        function compressAndEncode(file, maxSize, quality) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let w = img.width, h = img.height;
+                        if (w > maxSize || h > maxSize) {
+                            if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
+                            else { w = Math.round(w * maxSize / h); h = maxSize; }
+                        }
+                        canvas.width = w;
+                        canvas.height = h;
+                        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                        resolve(canvas.toDataURL('image/jpeg', quality));
+                    };
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // =============================================
+        // === ENVIAR VIDEOS (comprimir + base64)   ===
+        // =============================================
+        const videoButton = document.getElementById('video-button');
+        const videoInput = document.getElementById('video-input');
+        videoButton.addEventListener('click', () => videoInput.click());
+
+        function compressVideo(file, maxSizeMB) {
+            return new Promise((resolve, reject) => {
+                const MAX_BYTES = (maxSizeMB || 4) * 1024 * 1024;
+                // Si es pequeño, enviar directo como base64
+                if (file.size <= MAX_BYTES) {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                    return;
+                }
+
+                // Comprimir reduciendo resolución y bitrate
+                const video = document.createElement('video');
+                video.muted = true;
+                video.playsInline = true;
+                video.src = URL.createObjectURL(file);
+
+                video.onloadedmetadata = () => {
+                    const duration = video.duration;
+                    let w = video.videoWidth, h = video.videoHeight;
+                    // Reducir resolución
+                    const maxDim = 480;
+                    if (w > maxDim || h > maxDim) {
+                        if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
+                        else { w = Math.round(w * maxDim / h); h = maxDim; }
+                    }
+
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w;
+                    canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+
+                    // Calcular bitrate para que quepa en el límite
+                    const targetBits = MAX_BYTES * 8 * 0.85; // 85% del máximo
+                    const videoBitrate = Math.min(800000, Math.floor(targetBits / Math.max(duration, 1)));
+
+                    let stream;
+                    try {
+                        stream = canvas.captureStream(24);
+                    } catch(e) {
+                        // Fallback: enviar sin comprimir si captureStream no disponible
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
+                        return;
+                    }
+
+                    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp8') ? 'video/webm;codecs=vp8' : 'video/webm';
+                    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: videoBitrate });
+                    const chunks = [];
+                    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+                    recorder.onstop = () => {
+                        const blob = new Blob(chunks, { type: mimeType });
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                            URL.revokeObjectURL(video.src);
+                            resolve(reader.result);
+                        };
+                        reader.onerror = reject;
+                        reader.readAsDataURL(blob);
+                    };
+
+                    recorder.start();
+                    video.currentTime = 0;
+                    video.play();
+
+                    const drawFrame = () => {
+                        if (video.ended || video.paused) {
+                            recorder.stop();
+                            stream.getTracks().forEach(t => t.stop());
+                            return;
+                        }
+                        ctx.drawImage(video, 0, 0, w, h);
+                        requestAnimationFrame(drawFrame);
+                    };
+                    video.onplay = drawFrame;
+                    video.onended = () => {
+                        setTimeout(() => {
+                            if (recorder.state === 'recording') recorder.stop();
+                            stream.getTracks().forEach(t => t.stop());
+                        }, 100);
+                    };
+                };
+                video.onerror = () => reject(new Error('Error al cargar video'));
+            });
+        }
+
+        videoInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            videoInput.value = '';
+
+            // Límite de 8MB original (se comprimirá a ~4MB)
+            if (file.size > 8 * 1024 * 1024) {
+                alert('El video es muy grande. Máximo 8 MB.');
+                return;
+            }
+
+            showToast('⏳ Los videos se borran después de 24 horas. Guárdalo con 💾 si lo necesitas.');
+
+            try {
+                showToast('📹 Procesando video...');
+                const base64 = await compressVideo(file, 4);
+                const newMessage = {
+                    name: userName,
+                    type: 'video',
+                    videoData: base64,
+                    timestamp: Date.now(),
+                    status: 'sent'
+                };
+                if (replyingToMessage) {
+                    newMessage.replyTo = { id: replyingToMessage.id, name: replyingToMessage.name, text: replyingToMessage.text };
+                    cancelReply();
+                }
+                messagesRef.push(newMessage);
+            } catch (err) {
+                console.error('Error al enviar video:', err);
+                alert('Error al procesar el video');
+            }
+        });
+
+        // =============================================
+        // === ENVIAR DOCUMENTOS (base64 temporal)  ===
+        // =============================================
+        const docButton = document.getElementById('doc-button');
+        const docInput = document.getElementById('doc-input');
+        docButton.addEventListener('click', () => docInput.click());
+
+        docInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            docInput.value = '';
+
+            if (file.size > 5 * 1024 * 1024) {
+                alert('El documento es muy grande. Máximo 5 MB.');
+                return;
+            }
+
+            showToast('⏳ Los documentos se borran después de 24 horas. Descárgalo si lo necesitas.');
+
+            try {
+                const base64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+
+                const newMessage = {
+                    name: userName,
+                    type: 'document',
+                    docData: base64,
+                    docName: file.name,
+                    docSize: file.size,
+                    timestamp: Date.now(),
+                    status: 'sent'
+                };
+                if (replyingToMessage) {
+                    newMessage.replyTo = { id: replyingToMessage.id, name: replyingToMessage.name, text: replyingToMessage.text };
+                    cancelReply();
+                }
+                messagesRef.push(newMessage);
+            } catch (err) {
+                console.error('Error al enviar documento:', err);
+                alert('Error al procesar el documento');
+            }
+        });
+
+        // =============================================
+        // === GRABAR NOTAS DE VOZ (MediaRecorder)  ===
+        // =============================================
+        const micButton = document.getElementById('mic-button');
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let isRecording = false;
+
+        micButton.addEventListener('click', async () => {
+            if (isRecording) {
+                stopRecording();
+            } else {
+                startRecording();
+            }
+        });
+
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) audioChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = async () => {
+                    stream.getTracks().forEach(t => t.stop());
+                    const blob = new Blob(audioChunks, { type: 'audio/webm' });
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        const base64 = reader.result;
+                        const newMessage = {
+                            name: userName,
+                            type: 'audio',
+                            audioData: base64,
+                            timestamp: Date.now(),
+                            status: 'sent'
+                        };
+                        messagesRef.push(newMessage);
+                    };
+                    reader.readAsDataURL(blob);
+                };
+
+                mediaRecorder.start();
+                isRecording = true;
+                micButton.classList.add('recording');
+                micButton.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
+            } catch (err) {
+                console.error('Error al acceder al micrófono:', err);
+                alert('No se pudo acceder al micrófono');
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+            isRecording = false;
+            micButton.classList.remove('recording');
+            micButton.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
+        }
+
+        // =============================================
+        // === LLAMADAS WebRTC + Firebase Signaling  ===
+        // =============================================
+        const voiceCallBtn = document.getElementById('voice-call-button');
+        const videoCallBtn = document.getElementById('video-call-button');
+        const callOverlay = document.getElementById('call-overlay');
+        const callStatusEl = document.getElementById('call-status');
+        const callPeerNameEl = document.getElementById('call-peer-name');
+        const callTimerEl = document.getElementById('call-timer');
+        const remoteVideo = document.getElementById('remote-video');
+        const localVideo = document.getElementById('local-video');
+        const endCallBtn = document.getElementById('end-call-btn');
+        const acceptCallBtn = document.getElementById('accept-call-btn');
+        const rejectCallBtn = document.getElementById('reject-call-btn');
+        const callActionsOutgoing = document.getElementById('call-actions-outgoing');
+        const callActionsIncoming = document.getElementById('call-actions-incoming');
+
+        let peerConnection = null;
+        let localStream = null;
+        let callRef = null;
+        let callTimerInterval = null;
+        let callSeconds = 0;
+        let currentCallId = null;
+        let isCallInitiator = false;
+        let currentFacingMode = 'user'; // 'user' = frontal, 'environment' = trasera
+        const flipCameraBtn = document.getElementById('flip-camera-btn');
+
+        const rtcConfig = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        };
+
+        // Listener para llamadas entrantes
+        function setupCallListener() {
+            if (!activeChannel || !userName) return;
+            const callsRef = database.ref(`channels/${activeChannel}/calls`);
+            callsRef.on('child_added', (snap) => {
+                const call = snap.val();
+                if (call.to === userName && call.status === 'ringing' && !currentCallId) {
+                    receiveCall(snap.key, call);
+                }
+            });
+            callsRef.on('child_changed', (snap) => {
+                const call = snap.val();
+                if (snap.key === currentCallId) {
+                    if (call.status === 'ended') {
+                        endCall(false);
+                    } else if (call.status === 'answered' && isCallInitiator) {
+                        handleCallAnswered(call);
+                    }
+                    // ICE candidates
+                    if (call.ice_callee && isCallInitiator) {
+                        addIceCandidates(call.ice_callee);
+                    }
+                    if (call.ice_caller && !isCallInitiator) {
+                        addIceCandidates(call.ice_caller);
+                    }
+                }
+            });
+        }
+
+        function addIceCandidates(iceCandidates) {
+            if (!peerConnection || !iceCandidates) return;
+            Object.values(iceCandidates).forEach(c => {
+                if (c && c.candidate) {
+                    peerConnection.addIceCandidate(new RTCIceCandidate(c)).catch(e => console.log('ICE error:', e));
+                }
+            });
+        }
+
+        // Iniciar llamada
+        async function startCall(withVideo) {
+            // Buscar usuarios online
+            const presSnap = await presenceRef.once('value');
+            const online = presSnap.val() || {};
+            const peers = Object.keys(online).filter(n => n !== userName && online[n] === true);
+
+            if (peers.length === 0) {
+                alert('No hay nadie en línea para llamar');
+                return;
+            }
+
+            // Si hay múltiples, llamar al primero (se puede mejorar con selector)
+            const targetUser = peers.length === 1 ? peers[0] : await selectPeer(peers);
+            if (!targetUser) return;
+
+            isCallInitiator = true;
+            callOverlay.classList.add('active');
+            callStatusEl.textContent = 'Llamando...';
+            callPeerNameEl.textContent = targetUser;
+            callActionsOutgoing.style.display = 'flex';
+            callActionsIncoming.style.display = 'none';
+            localVideo.style.display = withVideo ? 'block' : 'none';
+            flipCameraBtn.style.display = withVideo ? 'flex' : 'none';
+            currentFacingMode = 'user';
+
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: withVideo ? { facingMode: 'user' } : false });
+                if (withVideo) { localVideo.srcObject = localStream; }
+
+                peerConnection = new RTCPeerConnection(rtcConfig);
+                localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
+
+                peerConnection.ontrack = (event) => {
+                    remoteVideo.srcObject = event.streams[0];
+                    if (withVideo) {
+                        remoteVideo.style.display = 'block';
+                        remoteVideo.classList.add('remote-video');
+                    }
+                };
+
+                // ICE candidates
+                const callsRef = database.ref(`channels/${activeChannel}/calls`);
+                const newCallRef = callsRef.push();
+                currentCallId = newCallRef.key;
+                callRef = newCallRef;
+
+                peerConnection.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        callRef.child('ice_caller').push(event.candidate.toJSON());
+                    }
+                };
+
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+
+                await callRef.set({
+                    from: userName,
+                    to: targetUser,
+                    type: withVideo ? 'video' : 'voice',
+                    status: 'ringing',
+                    offer: { type: offer.type, sdp: offer.sdp },
+                    timestamp: Date.now()
+                });
+
+                // Auto-cancelar después de 30s sin respuesta
+                setTimeout(() => {
+                    if (currentCallId && callRef) {
+                        callRef.once('value', (s) => {
+                            if (s.val() && s.val().status === 'ringing') {
+                                callRef.update({ status: 'ended' });
+                                endCall(false);
+                            }
+                        });
+                    }
+                }, 30000);
+
+            } catch (err) {
+                console.error('Error al iniciar llamada:', err);
+                alert('No se pudo iniciar la llamada');
+                endCall(false);
+            }
+        }
+
+        // Selector de usuario cuando hay múltiples online
+        function selectPeer(peers) {
+            return new Promise((resolve) => {
+                const names = peers.join(', ');
+                showPromptModal(`¿A quién llamar? (${names})`, peers[0]).then(name => {
+                    if (name && peers.includes(name)) resolve(name);
+                    else if (name) { alert('Usuario no encontrado'); resolve(null); }
+                    else resolve(null);
+                });
+            });
+        }
+
+        // Recibir llamada
+        function receiveCall(callId, call) {
+            currentCallId = callId;
+            callRef = database.ref(`channels/${activeChannel}/calls/${callId}`);
+            isCallInitiator = false;
+
+            callOverlay.classList.add('active');
+            callStatusEl.textContent = call.type === 'video' ? '📹 Videollamada entrante' : '📞 Llamada entrante';
+            callPeerNameEl.textContent = call.from;
+            callActionsOutgoing.style.display = 'none';
+            callActionsIncoming.style.display = 'flex';
+            localVideo.style.display = 'none';
+
+            // Vibrar y sonido
+            if (navigator.vibrate) navigator.vibrate([500, 200, 500, 200, 500]);
+            playNotificationSound();
+        }
+
+        // Aceptar llamada
+        acceptCallBtn.addEventListener('click', async () => {
+            if (!currentCallId || !callRef) return;
+            callActionsIncoming.style.display = 'none';
+            callActionsOutgoing.style.display = 'flex';
+            callStatusEl.textContent = 'Conectando...';
+
+            try {
+                const snap = await callRef.once('value');
+                const call = snap.val();
+                const withVideo = call.type === 'video';
+
+                currentFacingMode = 'user';
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: withVideo ? { facingMode: 'user' } : false });
+                if (withVideo) { localVideo.style.display = 'block'; localVideo.srcObject = localStream; flipCameraBtn.style.display = 'flex'; }
+
+                peerConnection = new RTCPeerConnection(rtcConfig);
+                localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
+
+                peerConnection.ontrack = (event) => {
+                    remoteVideo.srcObject = event.streams[0];
+                    if (withVideo) { remoteVideo.style.display = 'block'; }
+                };
+
+                peerConnection.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        callRef.child('ice_callee').push(event.candidate.toJSON());
+                    }
+                };
+
+                peerConnection.onconnectionstatechange = () => {
+                    if (peerConnection.connectionState === 'connected') {
+                        callStatusEl.textContent = 'En llamada';
+                        startCallTimer();
+                    }
+                };
+
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(call.offer));
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+
+                await callRef.update({
+                    status: 'answered',
+                    answer: { type: answer.type, sdp: answer.sdp }
+                });
+
+                // Agregar ICE del caller si ya llegaron
+                if (call.ice_caller) addIceCandidates(call.ice_caller);
+
+            } catch (err) {
+                console.error('Error al aceptar llamada:', err);
+                endCall(true);
+            }
+        });
+
+        // Manejar respuesta (para el que llama)
+        async function handleCallAnswered(call) {
+            try {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(call.answer));
+                callStatusEl.textContent = 'En llamada';
+                startCallTimer();
+
+                peerConnection.onconnectionstatechange = () => {
+                    if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
+                        endCall(true);
+                    }
+                };
+            } catch (err) {
+                console.error('Error en handleCallAnswered:', err);
+            }
+        }
+
+        // Timer de llamada
+        function startCallTimer() {
+            callSeconds = 0;
+            callTimerEl.style.display = 'block';
+            callTimerInterval = setInterval(() => {
+                callSeconds++;
+                const m = String(Math.floor(callSeconds / 60)).padStart(2, '0');
+                const s = String(callSeconds % 60).padStart(2, '0');
+                callTimerEl.textContent = `${m}:${s}`;
+            }, 1000);
+        }
+
+        // Terminar llamada
+        function endCall(updateRemote) {
+            if (callTimerInterval) { clearInterval(callTimerInterval); callTimerInterval = null; }
+            if (peerConnection) { peerConnection.close(); peerConnection = null; }
+            if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+            if (updateRemote && callRef) { callRef.update({ status: 'ended' }); }
+
+            remoteVideo.srcObject = null;
+            localVideo.srcObject = null;
+            remoteVideo.style.display = 'none';
+            localVideo.style.display = 'none';
+            flipCameraBtn.style.display = 'none';
+            callOverlay.classList.remove('active');
+            callTimerEl.style.display = 'none';
+            currentCallId = null;
+            callRef = null;
+            isCallInitiator = false;
+            if (navigator.vibrate) navigator.vibrate(0); // Detener vibración
+        }
+
+        // Voltear cámara (front/back)
+        flipCameraBtn.addEventListener('click', async () => {
+            if (!localStream || !peerConnection) return;
+            try {
+                currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+                const newStream = await navigator.mediaDevices.getUserMedia({
+                    audio: false,
+                    video: { facingMode: currentFacingMode }
+                });
+                const newVideoTrack = newStream.getVideoTracks()[0];
+                // Reemplazar track en el peer connection
+                const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+                if (sender) {
+                    await sender.replaceTrack(newVideoTrack);
+                }
+                // Reemplazar track en el stream local
+                const oldVideoTrack = localStream.getVideoTracks()[0];
+                if (oldVideoTrack) oldVideoTrack.stop();
+                localStream.removeTrack(oldVideoTrack);
+                localStream.addTrack(newVideoTrack);
+                localVideo.srcObject = localStream;
+            } catch (err) {
+                console.error('Error al voltear cámara:', err);
+                currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+            }
+        });
+
+        endCallBtn.addEventListener('click', () => endCall(true));
+        rejectCallBtn.addEventListener('click', () => endCall(true));
+
+        voiceCallBtn.addEventListener('click', () => startCall(false));
+        videoCallBtn.addEventListener('click', () => startCall(true));
+
+        // Agregar setupCallListener al initializeChat
+        const origInitializeChat = initializeChat;
+        initializeChat = function() {
+            origInitializeChat();
+            setupCallListener();
+        };
+        // Si ya se inicializó (auto-login), activar listener
+        if (activeChannel && userName) {
+            setupCallListener();
+        }
+
+
+    </script>
+
+</body>
+</html>
