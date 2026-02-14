@@ -1,8 +1,8 @@
 {
-  "name": "FACBA Chat",
+  "name": "iChat",
   "short_name": "Chat",
   "description": "Chat privado por canales con PIN",
-  "start_url": "./prueba.html",
+  "start_url": "./ichat.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
