@@ -1209,6 +1209,79 @@
              font-size: 0.85em;
              margin: 4px 0;
          }
+         /* Banner de subida de video */
+         .upload-banner {
+             position: fixed;
+             top: 0;
+             left: 50%;
+             transform: translateX(-50%);
+             max-width: 700px;
+             width: 100%;
+             background: linear-gradient(135deg, #007aff 0%, #5856d6 100%);
+             color: white;
+             padding: 10px 16px;
+             display: flex;
+             align-items: center;
+             gap: 10px;
+             z-index: 9998;
+             font-size: 0.88em;
+             font-weight: 500;
+             box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+             animation: slideDown 0.3s ease;
+         }
+         .upload-banner .upload-spinner {
+             width: 18px; height: 18px;
+             border: 2.5px solid rgba(255,255,255,0.3);
+             border-top-color: white;
+             border-radius: 50%;
+             animation: spin 0.8s linear infinite;
+         }
+         @keyframes slideDown {
+             from { transform: translateX(-50%) translateY(-100%); }
+             to { transform: translateX(-50%) translateY(0); }
+         }
+
+         /* Grabación de audio: botón cancelar */
+         .audio-cancel-btn {
+             width: 34px;
+             height: 34px;
+             border: none;
+             border-radius: 50%;
+             background: rgba(255,59,48,0.15);
+             color: #ff3b30;
+             cursor: pointer;
+             display: none;
+             align-items: center;
+             justify-content: center;
+             transition: background 0.2s;
+             -webkit-tap-highlight-color: transparent;
+         }
+         .audio-cancel-btn.visible { display: flex; }
+         .audio-cancel-btn:hover { background: rgba(255,59,48,0.25); }
+         .audio-cancel-btn svg { width: 18px; height: 18px; }
+
+         /* Audio speed button */
+         .audio-speed-btn {
+             border: none;
+             background: rgba(0,0,0,0.08);
+             color: inherit;
+             padding: 1px 5px;
+             border-radius: 4px;
+             font-size: 0.65em;
+             font-weight: 600;
+             cursor: pointer;
+             min-width: 28px;
+             text-align: center;
+             transition: background 0.15s;
+             opacity: 0.7;
+         }
+         .audio-speed-btn:hover { opacity: 1; background: rgba(0,0,0,0.12); }
+         .message.sent .audio-speed-btn {
+             background: rgba(255,255,255,0.2);
+             color: white;
+         }
+         .message.sent .audio-speed-btn:hover { background: rgba(255,255,255,0.3); }
+
          .toast-notification {
              position: fixed;
              bottom: 80px;
@@ -1739,6 +1812,9 @@
                     </button>
                     <button id="mic-button" class="media-btn" title="Grabar audio">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                    </button>
+                    <button id="mic-cancel-button" class="audio-cancel-btn" title="Cancelar grabación">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                     </button>
                 </div>
                 <div class="message-input-area">
@@ -2763,11 +2839,25 @@
                 timeSpanRow.appendChild(currentTime);
                 timeSpanRow.appendChild(durationSpan);
 
+                const speedBtn = document.createElement('button');
+                speedBtn.classList.add('audio-speed-btn');
+                speedBtn.textContent = '1x';
+                speedBtn.title = 'Velocidad de reproducción';
+                const speeds = [1, 1.5, 2];
+                let speedIdx = 0;
+                speedBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    speedIdx = (speedIdx + 1) % speeds.length;
+                    audioEl.playbackRate = speeds[speedIdx];
+                    speedBtn.textContent = speeds[speedIdx] + 'x';
+                });
+
                 trackDiv.appendChild(progressBar);
                 trackDiv.appendChild(timeSpanRow);
 
                 playerDiv.appendChild(playBtn);
                 playerDiv.appendChild(trackDiv);
+                playerDiv.appendChild(speedBtn);
                 messageElement.appendChild(playerDiv);
 
                 const fmtTime = (s) => {
@@ -4257,22 +4347,40 @@
             });
         }
 
+        // Banner persistente para subida de video
+        function showUploadBanner(text) {
+            removeUploadBanner();
+            const banner = document.createElement('div');
+            banner.classList.add('upload-banner');
+            banner.id = 'upload-banner';
+            banner.innerHTML = `<div class="upload-spinner"></div><span>${text}</span>`;
+            document.body.appendChild(banner);
+        }
+        function updateUploadBanner(text) {
+            const banner = document.getElementById('upload-banner');
+            if (banner) banner.querySelector('span').textContent = text;
+        }
+        function removeUploadBanner() {
+            const banner = document.getElementById('upload-banner');
+            if (banner) banner.remove();
+        }
+
         videoInput.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
             videoInput.value = '';
 
-            // Límite de 50MB (se comprimirá automáticamente a ~4MB)
             if (file.size > 50 * 1024 * 1024) {
                 alert('El video es muy grande. Máximo 50 MB.');
                 return;
             }
 
             showToast('⏳ Los videos se borran después de 24 horas. Guárdalo con 💾 si lo necesitas.');
+            showUploadBanner('📹 Procesando video… no cierres el chat');
 
             try {
-                showToast('📹 Procesando video...');
                 const base64 = await compressVideo(file, 4);
+                updateUploadBanner('📤 Enviando video…');
                 const newMessage = {
                     name: userName,
                     type: 'video',
@@ -4285,9 +4393,11 @@
                     newMessage.replyTo = { id: replyingToMessage.id, name: replyingToMessage.name, text: replyingToMessage.text };
                     cancelReply();
                 }
-                messagesRef.push(newMessage);
-                showToast('✅ Video enviado');
+                await messagesRef.push(newMessage);
+                removeUploadBanner();
+                showToast('✅ Video enviado correctamente');
             } catch (err) {
+                removeUploadBanner();
                 console.error('Error al enviar video:', err);
                 alert('Error al procesar el video');
             }
@@ -4345,20 +4455,35 @@
         // === GRABAR NOTAS DE VOZ (MediaRecorder)  ===
         // =============================================
         const micButton = document.getElementById('mic-button');
+        const micCancelButton = document.getElementById('mic-cancel-button');
         let mediaRecorder = null;
         let audioChunks = [];
         let isRecording = false;
+        let audioCancelled = false;
+
+        const MIC_ICON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
+        const STOP_ICON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
 
         micButton.addEventListener('click', async () => {
             if (isRecording) {
+                audioCancelled = false;
                 stopRecording();
             } else {
                 startRecording();
             }
         });
 
+        micCancelButton.addEventListener('click', () => {
+            if (isRecording) {
+                audioCancelled = true;
+                stopRecording();
+                showToast('🗑️ Audio descartado');
+            }
+        });
+
         async function startRecording() {
             try {
+                audioCancelled = false;
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
                 audioChunks = [];
@@ -4369,6 +4494,7 @@
 
                 mediaRecorder.onstop = async () => {
                     stream.getTracks().forEach(t => t.stop());
+                    if (audioCancelled) return;
                     const blob = new Blob(audioChunks, { type: 'audio/webm' });
                     const reader = new FileReader();
                     reader.onload = () => {
@@ -4389,7 +4515,8 @@
                 mediaRecorder.start();
                 isRecording = true;
                 micButton.classList.add('recording');
-                micButton.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
+                micButton.innerHTML = STOP_ICON;
+                micCancelButton.classList.add('visible');
             } catch (err) {
                 console.error('Error al acceder al micrófono:', err);
                 alert('No se pudo acceder al micrófono');
@@ -4402,7 +4529,8 @@
             }
             isRecording = false;
             micButton.classList.remove('recording');
-            micButton.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
+            micButton.innerHTML = MIC_ICON;
+            micCancelButton.classList.remove('visible');
         }
 
         // =============================================
