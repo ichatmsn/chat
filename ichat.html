@@ -143,11 +143,12 @@
             background: none;
             border: 1px solid rgba(0,122,255,0.3);
             color: #007aff;
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 0.65em;
+            padding: 3px 6px;
+            border-radius: 8px;
+            font-size: 0.55em;
+            font-weight: 500;
             cursor: pointer;
-            margin-top: 4px;
+            margin-top: 3px;
             transition: all 0.2s;
         }
         .help-btn:hover {
@@ -367,10 +368,10 @@
             border: none;
             background: rgba(0,122,255,0.15);
             color: #003a8c;
-            padding: 2px 6px;
-            border-radius: 5px;
-            font-size: 0.62em;
-            font-weight: 600;
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-size: 0.55em;
+            font-weight: 500;
             cursor: pointer;
             transition: background 0.2s ease;
         }
@@ -2145,7 +2146,7 @@
                 if (!keyword) return false;
                 await channelConfigRef.set({
                     pin: pin,
-                    keyword: keyword.toUpperCase(),
+                    keyword: keyword,
                     createdBy: userName,
                     createdAt: firebase.database.ServerValue.TIMESTAMP,
                     requireApproval: false
