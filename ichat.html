@@ -111,7 +111,7 @@
             100% { transform: translate(0,0); }
         }
         .nudge-shaking {
-            animation: nudge-shake 0.4s ease-in-out 8;
+            animation: nudge-shake 0.375s ease-in-out 8;
         }
         .nudge-message {
             text-align: center;
@@ -3918,10 +3918,10 @@
         const NUDGE_COOLDOWN = 5000; // 5 segundos entre zumbidos
 
         function triggerNudgeEffect() {
-            // Shake the chat container (3.2 seconds = 0.4s * 8 repeats)
+            // Shake the chat container (3 seconds = 0.375s * 8 repeats)
             const chatContainer = document.getElementById('chat-container');
             chatContainer.classList.add('nudge-shaking');
-            setTimeout(() => chatContainer.classList.remove('nudge-shaking'), 3200);
+            setTimeout(() => chatContainer.classList.remove('nudge-shaking'), 3000);
             // Vibrar fuerte en dispositivos móviles (3 segundos de patrón)
             if (navigator.vibrate) {
                 navigator.vibrate([200, 80, 200, 80, 200, 80, 200, 80, 200, 80, 200, 80, 200, 80, 200]);
