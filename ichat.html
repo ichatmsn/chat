@@ -111,7 +111,7 @@
             100% { transform: translate(0,0); }
         }
         .nudge-shaking {
-            animation: nudge-shake 0.6s ease-in-out;
+            animation: nudge-shake 0.4s ease-in-out 8;
         }
         .nudge-message {
             text-align: center;
@@ -128,6 +128,134 @@
         .nudge-message-wrapper {
             text-align: center;
             width: 100%;
+        }
+
+        /* Uppercase para nickname y canal */
+        #name-input, #channel-input {
+            text-transform: uppercase;
+        }
+        #name-input::placeholder, #channel-input::placeholder {
+            text-transform: none;
+        }
+
+        /* Botón de ayuda */
+        .help-btn {
+            background: none;
+            border: 1px solid rgba(0,122,255,0.3);
+            color: #007aff;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 0.82em;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 6px;
+            transition: all 0.2s;
+        }
+        .help-btn:hover {
+            background: rgba(0,122,255,0.08);
+        }
+
+        /* Modal de ayuda */
+        .help-modal-body {
+            text-align: left;
+            font-size: 0.9em;
+            line-height: 1.6;
+            color: #333;
+            max-height: 60vh;
+            overflow-y: auto;
+            padding: 10px 0;
+        }
+        .help-modal-body h3 {
+            color: #007aff;
+            margin: 14px 0 6px 0;
+            font-size: 1em;
+        }
+        .help-modal-body h3:first-child {
+            margin-top: 0;
+        }
+        .help-modal-body p {
+            margin: 4px 0 10px 0;
+        }
+
+        /* Aprobación pendiente */
+        .approval-pending-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 16px;
+            color: white;
+        }
+        .approval-pending-overlay .spinner {
+            width: 48px; height: 48px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top-color: #007aff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .approval-pending-overlay h2 {
+            font-size: 1.3em;
+            margin: 0;
+        }
+        .approval-pending-overlay p {
+            font-size: 0.9em;
+            opacity: 0.8;
+            margin: 0;
+        }
+        .approval-pending-overlay button {
+            padding: 10px 24px;
+            background: #ff3b30;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        /* Solicitudes pendientes en chat */
+        .pending-request {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 10px;
+            padding: 10px 14px;
+            margin: 6px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            font-size: 0.88em;
+        }
+        .pending-request .pr-name {
+            font-weight: 600;
+            color: #856404;
+        }
+        .pending-request .pr-actions {
+            display: flex;
+            gap: 6px;
+        }
+        .pending-request .pr-btn {
+            padding: 4px 10px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.82em;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .pending-request .pr-approve {
+            background: #28a745;
+            color: white;
+        }
+        .pending-request .pr-reject {
+            background: #dc3545;
+            color: white;
         }
 
         /* Lightbox para visualizar imágenes */
@@ -187,7 +315,7 @@
             padding: 16px 18px;
             background: rgba(255,255,255,0.85);
             border-radius: 14px;
-            max-width: 340px;
+            max-width: 420px;
             width: 100%;
             text-align: left;
             box-shadow: 0 1px 6px rgba(0,0,0,0.06);
@@ -240,9 +368,9 @@
             border: none;
             background: rgba(0,122,255,0.15);
             color: #003a8c;
-            padding: 8px 10px;
-            border-radius: 10px;
-            font-size: 0.85em;
+            padding: 5px 10px;
+            border-radius: 8px;
+            font-size: 0.75em;
             font-weight: 700;
             cursor: pointer;
             transition: background 0.2s ease;
@@ -1517,6 +1645,7 @@
             <input type="text" id="name-input" placeholder="Tu nickname">
             <input type="text" id="channel-input" placeholder="Canal (ej: EQUIPO2026)" style="text-transform:uppercase;">
             <button id="start-chat-button">Entrar al Chat</button>
+            <button class="help-btn" id="help-btn" type="button">❓ ¿Cómo funciona iChat?</button>
             <div id="ichat-description">
                 <div class="share-link-card">
                     <div class="share-link-title">Comparte Ichatmsn con tus amigos</div>
@@ -1563,6 +1692,7 @@
                      <button id="change-name-button">Cambiar Nombre</button>
                      <button id="change-pin-button">🔑 Cambiar PIN</button>
                      <button id="change-channel-button">📡 Cambiar Canal</button>
+                     <button id="owner-options-button">🛡️ Más opciones</button>
                      <button id="install-app-button" style="display:none">📲 Instalar App</button>
                  </div>
             </div>
@@ -1683,6 +1813,87 @@
             </div>
         </div>
     </div>
+
+    <!-- Help Modal -->
+    <div id="help-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:10000; align-items:center; justify-content:center;">
+        <div class="pw-modal-card" style="max-width:440px; width:90%; max-height:85vh; overflow-y:auto;">
+            <h3 style="text-align:center; margin-bottom:10px;">📖 Guía de iChat</h3>
+            <div class="help-modal-body">
+                <h3>🚀 ¿Qué es iChat?</h3>
+                <p>iChat es una plataforma de mensajería instantánea inspirada en el clásico MSN Messenger. Funciona desde el navegador en <b>Android, iPhone, PC y Tablets</b> sin necesidad de instalar nada. No necesitas dar tu número de teléfono: solo elige un <b>nickname</b> y un <b>canal</b>.</p>
+
+                <h3>📡 Canales</h3>
+                <p>Los canales son salas de chat privadas. Cuando creas un canal nuevo, defines un <b>PIN</b> (para que otros puedan entrar) y una <b>Palabra Clave</b> secreta (solo para el dueño). La Palabra Clave te da el control total del canal: cambiar el PIN, expulsar miembros y activar/desactivar la aprobación de ingreso.</p>
+
+                <h3>🔑 PIN vs Palabra Clave</h3>
+                <p><b>PIN:</b> Se comparte con quienes quieres que entren al canal. Cualquiera con el PIN puede unirse.<br>
+                <b>Palabra Clave:</b> Solo la conoce el dueño del canal. Sirve para administrar el canal: cambiar PIN, expulsar miembros, activar aprobación de ingreso y acceder a opciones avanzadas.</p>
+
+                <h3>🛡️ Aprobación de Ingreso</h3>
+                <p>Desde <b>⚙️ → Más opciones</b> (con la Palabra Clave), puedes activar la <b>aprobación de ingreso</b>. Si está activada, aunque alguien tenga el PIN, verá un mensaje de "Esperando aprobación..." hasta que alguien dentro del chat lo apruebe.</p>
+
+                <h3>👢 Expulsar Miembros</h3>
+                <p>Desde <b>⚙️ → Más opciones</b>, puedes ver la lista de usuarios conectados y expulsar a cualquiera. Solo necesitas la Palabra Clave del canal.</p>
+
+                <h3>🔒 Bloqueo de Chat</h3>
+                <p>Cualquier miembro puede bloquear la pantalla del chat. Para desbloquear se necesita el PIN del canal. Desde "Más opciones" en el bloqueo también puedes limpiar el chat.</p>
+
+                <h3>📞 Llamadas y Videollamadas</h3>
+                <p>Puedes hacer llamadas de voz y videollamadas directamente desde el chat usando los botones 📞 y 📹 en la barra superior. Incluye la opción de voltear cámara durante la videollamada.</p>
+
+                <h3>📎 Multimedia</h3>
+                <p>Envía <b>imágenes, videos, documentos y audios</b> directamente desde el chat. Los videos se comprimen automáticamente para una carga rápida. También puedes grabar notas de voz.</p>
+
+                <h3>⚡ Zumbidos</h3>
+                <p>Como en el clásico Messenger, puedes enviar <b>zumbidos</b> que harán vibrar la pantalla del receptor con el sonido icónico. Hay un cooldown de 5 segundos entre zumbidos.</p>
+
+                <h3>📲 Instalar como App</h3>
+                <p>En Android puedes instalar iChat como una app desde el navegador. En iPhone, usa Safari → Compartir → "Agregar a pantalla de inicio".</p>
+
+                <h3>🔒 Privacidad</h3>
+                <p>No se almacenan datos personales. No necesitas cuenta, email ni número de teléfono. Los mensajes se guardan en el canal y se pueden limpiar en cualquier momento.</p>
+            </div>
+            <div style="text-align:center; margin-top:14px;">
+                <button class="lock-btn primary" id="help-modal-close">Entendido</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Owner Options Modal -->
+    <div id="owner-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:10000; align-items:center; justify-content:center;">
+        <div class="pw-modal-card" style="max-width:380px; width:90%;">
+            <h3 style="text-align:center; margin-bottom:14px;">🛡️ Opciones de Administrador</h3>
+            <div id="owner-modal-content" style="display:flex; flex-direction:column; gap:10px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:10px; background:#f8f9fa; border-radius:8px;">
+                    <span style="font-weight:600; font-size:0.92em;">Aprobación de ingreso</span>
+                    <label style="position:relative; display:inline-block; width:44px; height:24px;">
+                        <input type="checkbox" id="approval-toggle" style="opacity:0; width:0; height:0;">
+                        <span style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background:#ccc; border-radius:24px; transition:0.3s;"></span>
+                    </label>
+                </div>
+                <p style="font-size:0.78em; color:#888; margin:0; padding:0 4px;">Si está activado, los nuevos miembros necesitarán aprobación para entrar, aunque tengan el PIN.</p>
+                <hr style="border:none; border-top:1px solid #e5e5ea; margin:4px 0;">
+                <div id="owner-kick-section">
+                    <p style="font-weight:600; font-size:0.92em; margin:0 0 8px 0;">Usuarios conectados:</p>
+                    <div id="owner-users-list" style="max-height:200px; overflow-y:auto;"></div>
+                </div>
+            </div>
+            <div style="text-align:center; margin-top:14px;">
+                <button class="lock-btn secondary" id="owner-modal-close">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Approval Pending Overlay -->
+    <div id="approval-pending-overlay" class="approval-pending-overlay" style="display:none;">
+        <div class="spinner"></div>
+        <h2>Esperando aprobación...</h2>
+        <p>El administrador del canal debe aprobar tu ingreso</p>
+        <button id="cancel-approval-btn">Cancelar</button>
+    </div>
+
+    <!-- Pending Requests Container (shown to channel members) -->
+    <div id="pending-requests-container" style="display:none; position:fixed; bottom:80px; left:50%; transform:translateX(-50%); z-index:9998; max-width:400px; width:90%;"></div>
 
     <!-- iOS Install Banner -->
     <div class="ios-install-backdrop" id="ios-install-backdrop"></div>
@@ -1809,9 +2020,21 @@
         const bottomFixedArea = document.getElementById('bottom-fixed-area'); // Nuevo contenedor fijo
 
 
+        // --- Forzar mayúsculas en inputs ---
+        nameInput.addEventListener('input', () => {
+            const pos = nameInput.selectionStart;
+            nameInput.value = nameInput.value.toUpperCase();
+            nameInput.setSelectionRange(pos, pos);
+        });
+        channelInput.addEventListener('input', () => {
+            const pos = channelInput.selectionStart;
+            channelInput.value = channelInput.value.toUpperCase();
+            channelInput.setSelectionRange(pos, pos);
+        });
+
         // --- Lógica de Ingreso de Nombre ---
         startChatButton.addEventListener('click', async () => {
-            const enteredName = nameInput.value.trim();
+            const enteredName = nameInput.value.trim().toUpperCase();
             const enteredChannel = channelInput.value.trim().toUpperCase().replace(/[.$#\[\]\/]/g, '');
 
             if (!enteredName) { console.log('Por favor, ingresa un nombre.'); return; }
@@ -1861,6 +2084,8 @@
              setupTypingIndicator(); // Configurar el indicador de escribiendo
              setupPresence(); // Configurar la presencia del usuario
              setupChatLockListener(); // Escuchar estado de bloqueo global
+             setupPendingRequestsListener(); // Escuchar solicitudes de ingreso pendientes
+             setupKickedListener(); // Escuchar si el usuario fue expulsado
              requestNotificationPermission(); // Solicitar permiso de notificaciones
              setTimeout(cleanupExpiredMedia, 3000); // Limpiar media expirada al iniciar
         }
@@ -1894,6 +2119,18 @@
                 const config = snapshot.val();
                 const ok = await showPasswordModal('Ingresa el PIN del canal ' + channelId, config.pin);
                 if (!ok) return false;
+
+                // Verificar si requiere aprobación
+                if (config.requireApproval) {
+                    activeChannel = channelId;
+                    setupChannelRefs(channelId);
+                    const approved = await waitForApproval(channelId, userName);
+                    if (!approved) {
+                        activeChannel = '';
+                        return false;
+                    }
+                    return true;
+                }
             } else {
                 // Canal nuevo, confirmar creación
                 const okCreate = await showConfirmModal(
@@ -1904,16 +2141,110 @@
                 // Pedir crear PIN
                 const pin = await showPromptModal('Crea un PIN para el canal ' + channelId, 'PIN (ej: 1234)');
                 if (!pin) return false;
+                // Pedir palabra clave del dueño
+                const keyword = await showPromptModal('Crea una Palabra Clave secreta (solo para el dueño del canal)', 'Palabra clave');
+                if (!keyword) return false;
                 await channelConfigRef.set({
                     pin: pin,
+                    keyword: keyword.toUpperCase(),
                     createdBy: userName,
-                    createdAt: firebase.database.ServerValue.TIMESTAMP
+                    createdAt: firebase.database.ServerValue.TIMESTAMP,
+                    requireApproval: false
                 });
             }
 
             activeChannel = channelId;
             setupChannelRefs(channelId);
             return true;
+        }
+
+        // --- Sistema de Aprobación de Ingreso ---
+        async function waitForApproval(channelId, requestingUser) {
+            return new Promise((resolve) => {
+                const pendingRef = database.ref(`channels/${channelId}/pending/${requestingUser}`);
+                const overlay = document.getElementById('approval-pending-overlay');
+                const cancelBtn = document.getElementById('cancel-approval-btn');
+                let listener;
+
+                // Mostrar overlay de espera
+                overlay.style.display = 'flex';
+
+                // Escribir solicitud pendiente
+                pendingRef.set({
+                    name: requestingUser,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP,
+                    status: 'pending'
+                });
+
+                // Escuchar cambios en el status
+                listener = pendingRef.on('value', (snap) => {
+                    const data = snap.val();
+                    if (!data) {
+                        // Fue rechazado (eliminado)
+                        overlay.style.display = 'none';
+                        pendingRef.off('value', listener);
+                        resolve(false);
+                    } else if (data.status === 'approved') {
+                        overlay.style.display = 'none';
+                        pendingRef.remove();
+                        pendingRef.off('value', listener);
+                        resolve(true);
+                    }
+                });
+
+                // Cancelar solicitud
+                cancelBtn.addEventListener('click', () => {
+                    overlay.style.display = 'none';
+                    pendingRef.remove();
+                    pendingRef.off('value', listener);
+                    resolve(false);
+                }, { once: true });
+
+                // Limpiar al desconectar
+                pendingRef.onDisconnect().remove();
+            });
+        }
+
+        // --- Listener de solicitudes pendientes (para miembros del chat) ---
+        function setupPendingRequestsListener() {
+            if (!activeChannel) return;
+            const pendingRef = database.ref(`channels/${activeChannel}/pending`);
+            const container = document.getElementById('pending-requests-container');
+
+            pendingRef.on('value', (snapshot) => {
+                const pending = snapshot.val();
+                container.innerHTML = '';
+
+                if (!pending || Object.keys(pending).length === 0) {
+                    container.style.display = 'none';
+                    return;
+                }
+
+                container.style.display = 'block';
+                Object.entries(pending).forEach(([key, req]) => {
+                    if (req.status !== 'pending') return;
+                    const div = document.createElement('div');
+                    div.className = 'pending-request';
+                    div.innerHTML = `
+                        <span class="pr-name">👤 ${req.name} quiere unirse</span>
+                        <div class="pr-actions">
+                            <button class="pr-btn pr-approve" onclick="approveRequest('${key}')">✓</button>
+                            <button class="pr-btn pr-reject" onclick="rejectRequest('${key}')">✕</button>
+                        </div>
+                    `;
+                    container.appendChild(div);
+                });
+            });
+        }
+
+        function approveRequest(userName) {
+            if (!activeChannel) return;
+            database.ref(`channels/${activeChannel}/pending/${userName}`).update({ status: 'approved' });
+        }
+
+        function rejectRequest(userName) {
+            if (!activeChannel) return;
+            database.ref(`channels/${activeChannel}/pending/${userName}`).remove();
         }
 
 
@@ -3035,7 +3366,7 @@
             }
         });
 
-        // --- Lógica para Cambiar PIN del Canal ---
+        // --- Lógica para Cambiar PIN del Canal (requiere Palabra Clave) ---
         document.getElementById('change-pin-button').addEventListener('click', async () => {
             settingsDropdown.style.display = 'none';
             if (!activeChannel) return;
@@ -3043,12 +3374,18 @@
             const snapshot = await channelConfigRef.once('value');
             if (!snapshot.exists()) return;
             const config = snapshot.val();
-            const ok = await showPasswordModal('Ingresa el PIN actual del canal', config.pin);
-            if (!ok) return;
+            if (!config.keyword) {
+                // Canal antiguo sin palabra clave, pedir PIN actual como fallback
+                const ok = await showPasswordModal('Ingresa el PIN actual del canal', config.pin);
+                if (!ok) return;
+            } else {
+                const ok = await showPasswordModal('Ingresa la Palabra Clave del canal', config.keyword);
+                if (!ok) return;
+            }
             const newPin = await showPromptModal('Ingresa el nuevo PIN', 'Nuevo PIN');
             if (!newPin) return;
             await channelConfigRef.update({ pin: newPin });
-            console.log('PIN del canal actualizado exitosamente');
+            showToast('🔑 PIN actualizado correctamente');
         });
 
         // --- Lógica para Cambiar Canal ---
@@ -3056,6 +3393,126 @@
             settingsDropdown.style.display = 'none';
             localStorage.removeItem('chatChannel');
             location.reload();
+        });
+
+        // --- Lógica de Más opciones (Owner/Admin) ---
+        document.getElementById('owner-options-button').addEventListener('click', async () => {
+            settingsDropdown.style.display = 'none';
+            if (!activeChannel) return;
+
+            const channelConfigRef = database.ref(`channels/${activeChannel}/config`);
+            const snapshot = await channelConfigRef.once('value');
+            if (!snapshot.exists()) return;
+            const config = snapshot.val();
+
+            if (!config.keyword) {
+                showToast('Este canal no tiene Palabra Clave configurada');
+                return;
+            }
+
+            const ok = await showPasswordModal('Ingresa la Palabra Clave del canal', config.keyword);
+            if (!ok) return;
+
+            // Mostrar modal de opciones de admin
+            const ownerModal = document.getElementById('owner-modal');
+            const approvalToggle = document.getElementById('approval-toggle');
+            const usersListDiv = document.getElementById('owner-users-list');
+
+            // Cargar estado actual de aprobación
+            approvalToggle.checked = config.requireApproval || false;
+
+            // Estilo del toggle switch
+            const toggleSlider = approvalToggle.nextElementSibling;
+            toggleSlider.style.background = approvalToggle.checked ? '#007aff' : '#ccc';
+            if (approvalToggle.checked) {
+                toggleSlider.innerHTML = '<span style="position:absolute; right:4px; top:3px; width:18px; height:18px; background:white; border-radius:50%; transition:0.3s;"></span>';
+            } else {
+                toggleSlider.innerHTML = '<span style="position:absolute; left:4px; top:3px; width:18px; height:18px; background:white; border-radius:50%; transition:0.3s;"></span>';
+            }
+
+            // Toggle de aprobación
+            approvalToggle.onchange = async () => {
+                const newVal = approvalToggle.checked;
+                toggleSlider.style.background = newVal ? '#007aff' : '#ccc';
+                if (newVal) {
+                    toggleSlider.innerHTML = '<span style="position:absolute; right:4px; top:3px; width:18px; height:18px; background:white; border-radius:50%; transition:0.3s;"></span>';
+                } else {
+                    toggleSlider.innerHTML = '<span style="position:absolute; left:4px; top:3px; width:18px; height:18px; background:white; border-radius:50%; transition:0.3s;"></span>';
+                }
+                await channelConfigRef.update({ requireApproval: newVal });
+                showToast(newVal ? '🛡️ Aprobación de ingreso activada' : '🔓 Aprobación de ingreso desactivada');
+            };
+
+            // Cargar usuarios conectados
+            const presSnap = await presenceRef.once('value');
+            const onlineUsers = presSnap.val() || {};
+            usersListDiv.innerHTML = '';
+
+            Object.keys(onlineUsers).forEach(name => {
+                if (onlineUsers[name] !== true) return;
+                const userDiv = document.createElement('div');
+                userDiv.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:8px 10px; background:#fff; border:1px solid #e5e5ea; border-radius:6px; margin-bottom:6px;';
+                const isCurrentUser = name === userName;
+                userDiv.innerHTML = `
+                    <span style="font-size:0.88em; font-weight:500;">${name}${isCurrentUser ? ' (tú)' : ''}</span>
+                    ${!isCurrentUser ? `<button onclick="kickUser('${name.replace(/'/g, "\\'")}')" style="padding:4px 10px; background:#ff3b30; color:white; border:none; border-radius:6px; font-size:0.78em; cursor:pointer; font-weight:600;">👢 Expulsar</button>` : ''}
+                `;
+                usersListDiv.appendChild(userDiv);
+            });
+
+            if (Object.keys(onlineUsers).length === 0) {
+                usersListDiv.innerHTML = '<p style="color:#888; font-size:0.85em; text-align:center;">No hay usuarios conectados</p>';
+            }
+
+            ownerModal.style.display = 'flex';
+        });
+
+        // Cerrar modal de admin
+        document.getElementById('owner-modal-close').addEventListener('click', () => {
+            document.getElementById('owner-modal').style.display = 'none';
+        });
+
+        // Función global para expulsar usuario
+        window.kickUser = async function(targetName) {
+            if (!activeChannel) return;
+            await database.ref(`channels/${activeChannel}/kicked/${targetName}`).set({
+                kickedBy: userName,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            });
+            // Eliminar presencia del usuario
+            await presenceRef.child(targetName).remove();
+            showToast(`👢 ${targetName} ha sido expulsado`);
+            // Actualizar lista en el modal
+            document.getElementById('owner-options-button').click();
+        };
+
+        // --- Listener de expulsión ---
+        function setupKickedListener() {
+            if (!activeChannel || !userName) return;
+            const kickedRef = database.ref(`channels/${activeChannel}/kicked/${userName}`);
+            kickedRef.on('value', (snap) => {
+                if (snap.exists()) {
+                    // El usuario fue expulsado
+                    kickedRef.remove();
+                    alert('Has sido expulsado del canal por el administrador.');
+                    localStorage.removeItem('chatChannel');
+                    location.reload();
+                }
+            });
+        }
+
+        // --- Lógica del Botón de Ayuda ---
+        document.getElementById('help-btn').addEventListener('click', () => {
+            const helpModal = document.getElementById('help-modal');
+            helpModal.style.display = 'flex';
+        });
+        document.getElementById('help-modal-close').addEventListener('click', () => {
+            document.getElementById('help-modal').style.display = 'none';
+        });
+        document.getElementById('help-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'help-modal') {
+                document.getElementById('help-modal').style.display = 'none';
+            }
         });
 
 
@@ -3462,82 +3919,110 @@
         const NUDGE_COOLDOWN = 5000; // 5 segundos entre zumbidos
 
         function triggerNudgeEffect() {
-            // Shake the chat container
+            // Shake the chat container (3.2 seconds = 0.4s * 8 repeats)
             const chatContainer = document.getElementById('chat-container');
             chatContainer.classList.add('nudge-shaking');
-            setTimeout(() => chatContainer.classList.remove('nudge-shaking'), 600);
-            // Vibrar en dispositivos móviles
+            setTimeout(() => chatContainer.classList.remove('nudge-shaking'), 3200);
+            // Vibrar fuerte en dispositivos móviles (3 segundos de patrón)
             if (navigator.vibrate) {
-                navigator.vibrate([100, 50, 100, 50, 150]);
+                navigator.vibrate([200, 80, 200, 80, 200, 80, 200, 80, 200, 80, 200, 80, 200, 80, 200]);
             }
-            // Sonido moderno de zumbido 2026 — punchy, limpio, impactante
+            // Sonido tipo MSN Messenger Nudge — fuerte, ruidoso, ~3 segundos
+            // Basado en el sonido original del Windows Live Messenger "buzz"
             try {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
                 const t = ctx.currentTime;
+                const duration = 3.0;
 
-                // Master output
+                // Master volume — FUERTE
                 const master = ctx.createGain();
-                master.gain.setValueAtTime(0.25, t);
+                master.gain.setValueAtTime(0.7, t);
                 master.connect(ctx.destination);
 
-                // Hit 1: golpe sub-bass (impacto inicial)
-                const sub = ctx.createOscillator();
-                const subG = ctx.createGain();
-                sub.type = 'sine';
-                sub.frequency.setValueAtTime(120, t);
-                sub.frequency.exponentialRampToValueAtTime(40, t + 0.15);
-                subG.gain.setValueAtTime(0.5, t);
-                subG.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
-                sub.connect(subG); subG.connect(master);
-                sub.start(t); sub.stop(t + 0.2);
+                // Compressor para que suene más fuerte sin distorsionar
+                const compressor = ctx.createDynamicsCompressor();
+                compressor.threshold.setValueAtTime(-10, t);
+                compressor.knee.setValueAtTime(10, t);
+                compressor.ratio.setValueAtTime(8, t);
+                compressor.attack.setValueAtTime(0.003, t);
+                compressor.release.setValueAtTime(0.1, t);
+                compressor.connect(master);
 
-                // Hit 2: tono principal — doble ping ascendente (moderno)
-                const ping1 = ctx.createOscillator();
-                const pingG1 = ctx.createGain();
-                ping1.type = 'sine';
-                ping1.frequency.setValueAtTime(587, t + 0.02); // D5
-                ping1.frequency.setValueAtTime(784, t + 0.12); // G5
-                pingG1.gain.setValueAtTime(0, t);
-                pingG1.gain.linearRampToValueAtTime(0.35, t + 0.03);
-                pingG1.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
-                ping1.connect(pingG1); pingG1.connect(master);
-                ping1.start(t + 0.02); ping1.stop(t + 0.35);
+                // Buzz principal — onda cuadrada con vibrato rápido (el sonido "eléctrico" del MSN)
+                for (let i = 0; i < 6; i++) {
+                    const startTime = t + (i * 0.5);
+                    const buzzDur = 0.45;
 
-                // Hit 3: segundo ping más agudo (eco corto)
-                const ping2 = ctx.createOscillator();
-                const pingG2 = ctx.createGain();
-                ping2.type = 'sine';
-                ping2.frequency.setValueAtTime(1047, t + 0.1); // C6
-                pingG2.gain.setValueAtTime(0, t + 0.1);
-                pingG2.gain.linearRampToValueAtTime(0.2, t + 0.12);
-                pingG2.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
-                ping2.connect(pingG2); pingG2.connect(master);
-                ping2.start(t + 0.1); ping2.stop(t + 0.4);
+                    // Tono bajo buzz
+                    const buzz = ctx.createOscillator();
+                    const buzzGain = ctx.createGain();
+                    buzz.type = 'square';
+                    buzz.frequency.setValueAtTime(220, startTime);
+                    buzz.frequency.setValueAtTime(185, startTime + 0.1);
+                    buzz.frequency.setValueAtTime(220, startTime + 0.2);
+                    buzz.frequency.setValueAtTime(185, startTime + 0.3);
+                    buzzGain.gain.setValueAtTime(0.3, startTime);
+                    buzzGain.gain.setValueAtTime(0.25, startTime + buzzDur * 0.5);
+                    buzzGain.gain.exponentialRampToValueAtTime(0.01, startTime + buzzDur);
+                    buzz.connect(buzzGain);
+                    buzzGain.connect(compressor);
+                    buzz.start(startTime);
+                    buzz.stop(startTime + buzzDur);
 
-                // Hit 4: click/snap transiente (textura digital)
-                const noise = ctx.createBufferSource();
-                const noiseLen = ctx.sampleRate * 0.03;
+                    // Tono agudo resonante (el "ring" metálico del MSN)
+                    const ring = ctx.createOscillator();
+                    const ringGain = ctx.createGain();
+                    ring.type = 'sawtooth';
+                    ring.frequency.setValueAtTime(880, startTime);
+                    ring.frequency.setValueAtTime(740, startTime + 0.15);
+                    ring.frequency.setValueAtTime(880, startTime + 0.3);
+                    ringGain.gain.setValueAtTime(0.12, startTime);
+                    ringGain.gain.exponentialRampToValueAtTime(0.01, startTime + buzzDur);
+                    ring.connect(ringGain);
+                    ringGain.connect(compressor);
+                    ring.start(startTime);
+                    ring.stop(startTime + buzzDur);
+
+                    // Sub-bass punch (golpe de cada ciclo)
+                    const sub = ctx.createOscillator();
+                    const subGain = ctx.createGain();
+                    sub.type = 'sine';
+                    sub.frequency.setValueAtTime(100, startTime);
+                    sub.frequency.exponentialRampToValueAtTime(50, startTime + 0.15);
+                    subGain.gain.setValueAtTime(0.4, startTime);
+                    subGain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.2);
+                    sub.connect(subGain);
+                    subGain.connect(compressor);
+                    sub.start(startTime);
+                    sub.stop(startTime + 0.2);
+                }
+
+                // Ruido blanco de fondo (textura de "interferencia")
+                const noiseLen = ctx.sampleRate * duration;
                 const noiseBuf = ctx.createBuffer(1, noiseLen, ctx.sampleRate);
                 const noiseData = noiseBuf.getChannelData(0);
-                for (let i = 0; i < noiseLen; i++) noiseData[i] = (Math.random() * 2 - 1) * (1 - i / noiseLen);
-                noise.buffer = noiseBuf;
-                const noiseG = ctx.createGain();
-                noiseG.gain.setValueAtTime(0.15, t);
-                noise.connect(noiseG); noiseG.connect(master);
-                noise.start(t);
+                for (let i = 0; i < noiseLen; i++) {
+                    noiseData[i] = (Math.random() * 2 - 1) * 0.15;
+                }
+                const noiseSource = ctx.createBufferSource();
+                noiseSource.buffer = noiseBuf;
+                const noiseGain = ctx.createGain();
+                noiseGain.gain.setValueAtTime(0.08, t);
+                noiseGain.gain.setValueAtTime(0.12, t + 0.5);
+                noiseGain.gain.setValueAtTime(0.08, t + 1.5);
+                noiseGain.gain.exponentialRampToValueAtTime(0.01, t + duration);
+                // Filtro paso banda para el ruido
+                const noiseFilter = ctx.createBiquadFilter();
+                noiseFilter.type = 'bandpass';
+                noiseFilter.frequency.setValueAtTime(1200, t);
+                noiseFilter.Q.setValueAtTime(2, t);
+                noiseSource.connect(noiseFilter);
+                noiseFilter.connect(noiseGain);
+                noiseGain.connect(compressor);
+                noiseSource.start(t);
+                noiseSource.stop(t + duration);
 
-                // Hit 5: tercer tono — acorde final breve (riqueza)
-                const chord = ctx.createOscillator();
-                const chordG = ctx.createGain();
-                chord.type = 'triangle';
-                chord.frequency.setValueAtTime(392, t + 0.15); // G4
-                chordG.gain.setValueAtTime(0, t + 0.15);
-                chordG.gain.linearRampToValueAtTime(0.12, t + 0.18);
-                chordG.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
-                chord.connect(chordG); chordG.connect(master);
-                chord.start(t + 0.15); chord.stop(t + 0.45);
-
-                setTimeout(() => ctx.close(), 800);
+                setTimeout(() => ctx.close(), (duration + 0.5) * 1000);
             } catch(e) { console.warn('No se pudo reproducir sonido de zumbido:', e); }
         }
 
