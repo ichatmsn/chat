@@ -653,25 +653,9 @@
         }
 
         function showMainInterface() {
-            // Verificar conexión a Firebase
-            console.log('🔍 Verificando conexión Firebase...');
-            console.log('📱 Database URL:', firebaseConfig.databaseURL);
-            console.log('🆔 Project ID:', firebaseConfig.projectId);
-            
-            // Probar conexión básica
-            const testRef = database.ref('.info/connected');
-            testRef.on('value', (snapshot) => {
-                console.log('🔌 Firebase conectado:', snapshot.val());
-            });
-            
-            // Inicializar la interfaz principal
             initializeTabs();
             initializeSearch();
-            
-            // Esperar un momento y cargar datos
-            setTimeout(() => {
-                loadData();
-            }, 1000);
+            loadData();
         }
 
         function logout() {
@@ -719,72 +703,27 @@
             if (!isAuthenticated) return;
             
             try {
-                console.log('🚀 Iniciando carga de datos...');
-                
-                // Cargar secuencialmente para mejor debug
                 await loadChannels();
-                console.log('✅ Canales cargados');
-                
                 await loadUsers();
-                console.log('✅ Usuarios cargados');
-                
                 await loadMessages();
-                console.log('✅ Mensajes cargados');
-                
                 await updateStats();
-                console.log('✅ Estadísticas actualizadas');
-                
                 addLog('Panel maestro inicializado correctamente');
             } catch (error) {
-                console.error('❌ Error al cargar datos:', error);
+                console.error('Error al cargar datos:', error);
                 addLog('Error al cargar datos: ' + error.message, 'error');
             }
         }
 
         // Cargar canales
         async function loadChannels() {
-            try {
-                console.log('🔍 Intentando cargar canales...');
-                
-                // Primero probar con .info para verificar conexión
-                const infoRef = database.ref('.info/serverTimeOffset');
-                const infoSnapshot = await infoRef.once('value');
-                console.log('⏰ Test de conexión básica OK:', infoSnapshot.val() !== null);
-                
-                const channelsRef = database.ref('channels');
-                console.log('📍 Referencia:', channelsRef.toString());
-                
-                const snapshot = await channelsRef.once('value');
-                console.log('📊 Snapshot recibido:', snapshot.exists());
-                
-                if (snapshot.exists()) {
-                    channels = snapshot.val();
-                    console.log('✅ Canales cargados:', Object.keys(channels));
-                } else {
-                    channels = {};
-                    console.log('⚠️ No hay canales');
-                }
-                
-                renderChannels();
-            } catch (error) {
-                console.error('❌ Error detallado en loadChannels:', error);
-                
-                // Intentar crear un canal de prueba para ver si es problema de permisos de escritura
-                try {
-                    console.log('🧪 Intentando escribir canal de prueba...');
-                    await database.ref('channels/test123').set({
-                        config: { pin: 'test' },
-                        messages: {},
-                        created: Date.now()
-                    });
-                    console.log('✅ Escritura OK - el problema es solo lectura');
-                } catch (writeError) {
-                    console.error('❌ Error de escritura también:', writeError);
-                    console.log('🚨 Las reglas de Firebase no permiten ninguna operación');
-                }
-                
-                throw error;
+            const channelsRef = database.ref('channels');
+            const snapshot = await channelsRef.once('value');
+            if (snapshot.exists()) {
+                channels = snapshot.val();
+            } else {
+                channels = {};
             }
+            renderChannels();
         }
 
         // Renderizar canales
@@ -801,6 +740,9 @@
                 const lockStatus = channelData.chat_lock || {};
                 const messageCount = Object.keys(channelData.messages || {}).length;
                 const isLocked = lockStatus.locked || false;
+                const hasApproval = config.requireApproval || false;
+                const pendingCount = Object.keys(channelData.pending || {}).length;
+                const onlineCount = Object.keys(channelData.presence || {}).length;
 
                 return `
                     <div class="channel-item" data-channel="${channelId}">
@@ -810,16 +752,22 @@
                                 <span class="badge ${isLocked ? 'badge-locked' : 'badge-unlocked'}">
                                     ${isLocked ? '🔒 Bloqueado' : '🔓 Libre'}
                                 </span>
+                                ${hasApproval ? '<span class="badge badge-locked">🛡️ Aprobación</span>' : ''}
                             </div>
                             <span class="channel-pin">PIN: ${config.pin || 'N/A'}</span>
                         </div>
                         <div class="channel-details">
-                            <div>Mensajes: ${messageCount}</div>
+                            <div>Mensajes: ${messageCount} · Usuarios: ${onlineCount} ${pendingCount > 0 ? `· <b style="color:#ff9500;">Pendientes: ${pendingCount}</b>` : ''}</div>
+                            <div>Palabra clave: ${config.keyword ? '✅ Configurada' : '❌ No configurada'}</div>
+                            <div>Creado por: ${config.createdBy || 'N/A'}</div>
                             ${isLocked ? `<div>Bloqueado por: ${lockStatus.lockedBy || 'N/A'}</div>` : ''}
                         </div>
                         <div class="channel-actions">
-                            <button class="btn btn-secondary btn-small" onclick="viewChannel('${channelId}')">👁️ Ver</button>
-                            <button class="btn btn-primary btn-small" onclick="editChannelPin('${channelId}')">🔑 Cambiar PIN</button>
+                            <button class="btn btn-primary btn-small" onclick="editChannelPin('${channelId}')">� PIN</button>
+                            <button class="btn btn-secondary btn-small" onclick="editChannelKeyword('${channelId}')">🔐 Keyword</button>
+                            <button class="btn btn-secondary btn-small" onclick="toggleApproval('${channelId}')">
+                                ${hasApproval ? '� Quitar Aprob.' : '🛡️ Activar Aprob.'}
+                            </button>
                             <button class="btn btn-secondary btn-small" onclick="toggleChannelLock('${channelId}')">
                                 ${isLocked ? '🔓 Desbloquear' : '🔒 Bloquear'}
                             </button>
@@ -851,65 +799,44 @@
 
         // Cargar usuarios
         async function loadUsers() {
-            try {
-                console.log('🔍 Cargando usuarios...');
-                const usersRef = database.ref('channels');
-                const snapshot = await usersRef.once('value');
-                const channelsData = snapshot.val() || {};
+            const usersRef = database.ref('channels');
+            const snapshot = await usersRef.once('value');
+            const channelsData = snapshot.val() || {};
+            
+            users = {};
+            
+            // Recopilar usuarios de todos los canales
+            Object.entries(channelsData).forEach(([channelId, channelData]) => {
+                const presence = channelData.presence || {};
                 
-                console.log('📊 Canales encontrados:', Object.keys(channelsData));
-                
-                users = {};
-                let onlineCount = 0;
-                
-                // Recopilar usuarios de todos los canales
-                Object.entries(channelsData).forEach(([channelId, channelData]) => {
-                    const presence = channelData.presence || {};
-                    console.log(`📍 Canal ${channelId} - presence:`, presence);
+                Object.entries(presence).forEach(([userName, userData]) => {
+                    let isOnline = false;
+                    let lastSeen = null;
                     
-                    Object.entries(presence).forEach(([userName, userData]) => {
-                        console.log(`👤 Usuario ${userName}:`, userData);
-                        
-                        // CORRECCIÓN: userData puede ser true (online) o un objeto con propiedades
-                        let isOnline = false;
-                        let lastSeen = null;
-                        
-                        if (userData === true) {
-                            // Caso: {Jhoan Parra: true} - está online
-                            isOnline = true;
-                        } else if (typeof userData === 'object' && userData !== null) {
-                            // Caso: {Jhoan Parra: {online: true, lastSeen: 123}}
-                            isOnline = userData.online === true || userData.status === 'online';
-                            lastSeen = userData.lastSeen || userData.timestamp || null;
+                    if (userData === true) {
+                        isOnline = true;
+                    } else if (typeof userData === 'object' && userData !== null) {
+                        isOnline = userData.online === true || userData.status === 'online';
+                        lastSeen = userData.lastSeen || userData.timestamp || null;
+                    }
+                    
+                    if (!users[userName]) {
+                        users[userName] = {
+                            name: userName,
+                            channels: [],
+                            status: isOnline ? 'online' : 'offline',
+                            lastSeen: lastSeen
+                        };
+                    } else {
+                        if (isOnline) {
+                            users[userName].status = 'online';
                         }
-                        
-                        if (isOnline) onlineCount++;
-                        
-                        if (!users[userName]) {
-                            users[userName] = {
-                                name: userName,
-                                channels: [],
-                                status: isOnline ? 'online' : 'offline',
-                                lastSeen: lastSeen
-                            };
-                        } else {
-                            // Si ya existe, actualizar estado si está online en algún canal
-                            if (isOnline) {
-                                users[userName].status = 'online';
-                            }
-                        }
-                        users[userName].channels.push(channelId);
-                    });
+                    }
+                    users[userName].channels.push(channelId);
                 });
+            });
 
-                console.log(`✅ Usuarios cargados: ${Object.keys(users).length} (${onlineCount} online)`);
-                console.log('👥 Lista de usuarios:', users);
-                
-                renderUsers();
-            } catch (error) {
-                console.error('❌ Error al cargar usuarios:', error);
-                throw error;
-            }
+            renderUsers();
         }
 
         // Renderizar usuarios
@@ -1123,14 +1050,6 @@
             const totalMessages = messages.length;
             const lockedChannels = Object.values(channels).filter(c => (c.chat_lock || {}).locked).length;
 
-            console.log('📈 Estadísticas actualizadas:', {
-                totalChannels,
-                onlineUsers,
-                totalMessages,
-                lockedChannels,
-                totalUsers: Object.keys(users).length
-            });
-
             document.getElementById('totalChannels').textContent = totalChannels;
             document.getElementById('onlineUsers').textContent = onlineUsers;
             document.getElementById('totalMessages').textContent = totalMessages;
@@ -1193,6 +1112,40 @@
                 console.error('Error al actualizar PIN:', error);
                 addLog('Error al actualizar PIN: ' + error.message, 'error');
                 showAlert('Error al actualizar PIN', 'error');
+            }
+        }
+
+        // Editar palabra clave del canal
+        async function editChannelKeyword(channelId) {
+            if (!isAuthenticated) return;
+            const newKeyword = prompt(`Ingrese nueva Palabra Clave para ${channelId.toUpperCase()}:`);
+            if (!newKeyword) return;
+            try {
+                await database.ref(`channels/${channelId}/config/keyword`).set(newKeyword.toUpperCase());
+                await loadChannels();
+                addLog(`Palabra clave del canal ${channelId.toUpperCase()} actualizada`);
+                showAlert('Palabra clave actualizada', 'success');
+            } catch (error) {
+                console.error('Error al actualizar keyword:', error);
+                addLog('Error al actualizar keyword: ' + error.message, 'error');
+            }
+        }
+
+        // Toggle aprobación de ingreso
+        async function toggleApproval(channelId) {
+            if (!isAuthenticated) return;
+            const channel = channels[channelId];
+            const config = channel.config || {};
+            const currentVal = config.requireApproval || false;
+            try {
+                await database.ref(`channels/${channelId}/config/requireApproval`).set(!currentVal);
+                await loadChannels();
+                updateStats();
+                addLog(`Aprobación de ingreso ${!currentVal ? 'activada' : 'desactivada'} en ${channelId.toUpperCase()}`);
+                showAlert(`Aprobación ${!currentVal ? 'activada' : 'desactivada'}`, 'success');
+            } catch (error) {
+                console.error('Error al cambiar aprobación:', error);
+                addLog('Error al cambiar aprobación: ' + error.message, 'error');
             }
         }
 
