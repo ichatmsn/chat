@@ -823,6 +823,58 @@
             background-color: #e5e5ea;
         }
 
+        /* Estilos para la vista previa del mensaje al editar */
+        #edit-preview {
+            display: none;
+            background-color: #fff9e6;
+            border-left: 4px solid #ff9500;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            width: 100%;
+            box-sizing: border-box;
+            position: relative;
+        }
+        #edit-preview .edit-label {
+            font-size: 0.85em;
+            color: #ff9500;
+            font-weight: 600;
+            margin-bottom: 2px;
+            display: block;
+        }
+        #edit-preview .edit-text {
+            font-size: 0.95em;
+            color: #1c1c1e;
+            display: block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #edit-preview #cancel-edit-button {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #8e8e93;
+            font-size: 1.2em;
+        }
+        #edit-preview #cancel-edit-button:hover {
+            color: #3a3a3c;
+        }
+        @media (max-width: 768px) {
+            #edit-preview {
+                padding: 8px 10px;
+            }
+        }
+
         /* Estilos para la vista previa del mensaje al responder */
         #reply-preview {
             display: none; /* Oculto por defecto */
@@ -1790,10 +1842,15 @@
                  <div id="emoji-picker">
                      </div>
                  <div id="reply-preview">
-                     <span class="reply-name"></span>
-                     <span class="reply-text"></span>
-                     <button id="cancel-reply-button">×</button>
-                 </div>
+                    <span class="reply-name"></span>
+                    <span class="reply-text"></span>
+                    <button id="cancel-reply-button">×</button>
+                </div>
+                <div id="edit-preview">
+                    <span class="edit-label">✏️ Editando mensaje</span>
+                    <span class="edit-text"></span>
+                    <button id="cancel-edit-button">×</button>
+                </div>
                 <div class="media-toolbar">
                     <input type="file" id="image-input" accept="image/*" style="display:none">
                     <input type="file" id="video-input" accept="video/*" style="display:none">
@@ -2076,6 +2133,9 @@
 
         // Variable para almacenar los datos del mensaje al que se está respondiendo
         let replyingToMessage = null;
+        // Variable para almacenar el mensaje que se está editando
+        let editingMessageId = null;
+        let editingMessageText = null;
 
         // Intersection Observer para detectar cuando los mensajes son visibles
         let messageObserver;
@@ -2099,6 +2159,10 @@
         const replyNameSpan = replyPreview.querySelector('.reply-name');
         const replyTextSpan = replyPreview.querySelector('.reply-text');
         const cancelReplyButton = document.getElementById('cancel-reply-button');
+        // Elementos para edición
+        const editPreview = document.getElementById('edit-preview');
+        const editTextSpan = editPreview.querySelector('.edit-text');
+        const cancelEditButton = document.getElementById('cancel-edit-button');
         // Nuevos elementos para configuración
         const settingsButton = document.getElementById('settings-button'); // Ahora en chat-header
         const settingsDropdown = document.getElementById('settings-dropdown'); // Ahora en chat-header
@@ -2349,51 +2413,73 @@
             return `${hours}:${minutes} ${ampm}`;
         }
 
-        // Función para enviar un mensaje (texto o respuesta)
+        // Función para enviar un mensaje (texto, respuesta o edición)
         function sendMessage() {
-            console.log("sendMessage function called."); // Debugging log
-            const messageText = messageInput.value.trim(); // Obtener el texto del mensaje y limpiar
-            console.log("Message text:", messageText); // Debugging log
-            console.log("User name:", userName); // Debugging log
+            console.log("sendMessage function called.");
+            const messageText = messageInput.value.trim();
+            console.log("Message text:", messageText);
+            console.log("User name:", userName);
 
-            if (messageText && userName) { // Asegurarse de que haya texto y nombre de usuario
-                const newMessage = {
-                    name: userName,
-                    text: messageText,
-                    timestamp: firebase.database.ServerValue.TIMESTAMP, // Usar el timestamp del servidor de Firebase
-                    status: 'sent', // Estado inicial: enviado
-                    sid: sessionId
-                };
-
-                // Si estamos respondiendo a un mensaje, añadir la referencia
-                if (replyingToMessage) {
-                    newMessage.replyTo = {
-                        id: replyingToMessage.id, // ID único del mensaje original
-                        name: replyingToMessage.name,
-                        content: replyingToMessage.text ? replyingToMessage.text.substring(0, 50) + (replyingToMessage.text.length > 50 ? '...' : '') : 'Archivo' // Fragmento del texto o indicar que es archivo
-                    };
-                    console.log("Sending as a reply to:", replyingToMessage.id); // Debugging log
-                }
-
-                console.log("Attempting to send message to Realtime Database:", newMessage); // Debugging log
-
-                // Enviar el nuevo mensaje a la base de datos
-                messagesRef.push(newMessage)
-                    .then(() => {
-                        console.log("Mensaje enviado exitosamente a Realtime Database!");
-                        messageInput.value = ''; // Limpiar el campo de entrada
-                        setTypingStatus(false); // Limpiar estado de escritura
-                        cancelReply(); // Cancelar el estado de respuesta después de enviar
-                        // Después de enviar, ajustar la altura del textarea a la mínima
-                        messageInput.style.height = 'auto';
-                    })
-                    .catch((error) => {
-                        console.error("Error al enviar mensaje a Realtime Database:", error);
-                        // Mostrar mensaje de error al usuario
-                    });
-            } else {
-                 console.log("Message not sent: text or user name missing."); // Debugging log
+            if (!messageText || !userName) {
+                console.log("Message not sent: text or user name missing.");
+                return;
             }
+
+            // Si estamos editando un mensaje existente
+            if (editingMessageId) {
+                if (messageText === editingMessageText) {
+                    // No hay cambios, solo cancelar modo edición
+                    cancelEdit();
+                    return;
+                }
+                // Actualizar el mensaje existente
+                messagesRef.child(editingMessageId).update({
+                    text: messageText,
+                    edited: true
+                }).then(() => {
+                    console.log("Mensaje editado exitosamente!");
+                    messageInput.value = '';
+                    setTypingStatus(false);
+                    cancelEdit();
+                    messageInput.style.height = 'auto';
+                }).catch((error) => {
+                    console.error("Error al editar mensaje:", error);
+                });
+                return;
+            }
+
+            // Es un mensaje nuevo
+            const newMessage = {
+                name: userName,
+                text: messageText,
+                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                status: 'sent',
+                sid: sessionId
+            };
+
+            // Si estamos respondiendo a un mensaje, añadir la referencia
+            if (replyingToMessage) {
+                newMessage.replyTo = {
+                    id: replyingToMessage.id,
+                    name: replyingToMessage.name,
+                    content: replyingToMessage.text ? replyingToMessage.text.substring(0, 50) + (replyingToMessage.text.length > 50 ? '...' : '') : 'Archivo'
+                };
+                console.log("Sending as a reply to:", replyingToMessage.id);
+            }
+
+            console.log("Attempting to send message to Realtime Database:", newMessage);
+
+            messagesRef.push(newMessage)
+                .then(() => {
+                    console.log("Mensaje enviado exitosamente a Realtime Database!");
+                    messageInput.value = '';
+                    setTypingStatus(false);
+                    cancelReply();
+                    messageInput.style.height = 'auto';
+                })
+                .catch((error) => {
+                    console.error("Error al enviar mensaje a Realtime Database:", error);
+                });
         }
 
         // Listener para el botón de enviar texto
@@ -2615,6 +2701,11 @@
             replyPreview.style.display = 'none';
             replyNameSpan.textContent = '';
             replyTextSpan.textContent = '';
+            // Reset del estado de edición si estaba activo
+            editingMessageId = null;
+            editingMessageText = null;
+            editPreview.style.display = 'none';
+            editTextSpan.textContent = '';
             // Ocultar selector/menús abiertos
             emojiPicker.style.display = 'none';
             settingsDropdown.style.display = 'none';
@@ -3162,13 +3253,10 @@
             if (msg.name === userName) {
                 const editBtn = document.createElement('button');
                 editBtn.textContent = '✏️ Editar';
-                editBtn.onclick = async (e) => {
+                editBtn.onclick = (e) => {
                     e.stopPropagation(); menu.remove();
                     const currentText = element.querySelector('.text') ? element.querySelector('.text').textContent : msg.text;
-                    const newText = await showPromptModal('Editar mensaje', currentText);
-                    if (newText && newText !== currentText) {
-                        messagesRef.child(messageId).update({ text: newText, edited: true });
-                    }
+                    startEdit(messageId, currentText);
                 };
                 menu.appendChild(editBtn);
 
@@ -3734,6 +3822,39 @@
              }, 150); // Retraso para dar tiempo al layout a ajustarse
         });
 
+
+        // --- Lógica de Editar Mensajes ---
+        function startEdit(messageId, currentText) {
+            // Cancelar cualquier modo de respuesta activo
+            cancelReply();
+            // Guardar datos del mensaje que se está editando
+            editingMessageId = messageId;
+            editingMessageText = currentText;
+            // Cargar el texto actual en el input
+            messageInput.value = currentText;
+            // Mostrar la vista previa de edición
+            editTextSpan.textContent = currentText;
+            editPreview.style.display = 'flex';
+            // Ajustar altura del textarea y padding
+            adjustTextareaHeight();
+            adjustChatBoxPadding();
+            // Poner foco en el input y seleccionar todo el texto
+            messageInput.focus();
+            messageInput.select();
+        }
+
+        function cancelEdit() {
+            editingMessageId = null;
+            editingMessageText = null;
+            editPreview.style.display = 'none';
+            editTextSpan.textContent = '';
+            messageInput.value = '';
+            messageInput.style.height = 'auto';
+            adjustChatBoxPadding();
+        }
+
+        // Listener para el botón de cancelar edición
+        cancelEditButton.addEventListener('click', cancelEdit);
 
         // --- Lógica de Responder Mensajes ---
 
