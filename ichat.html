@@ -143,10 +143,9 @@
             background: none;
             border: 1px solid rgba(0,122,255,0.3);
             color: #007aff;
-            padding: 6px 14px;
-            border-radius: 8px;
-            font-size: 0.82em;
-            font-weight: 600;
+            padding: 6px 10px;
+            border-radius: 14px;
+            font-size: 0.72em;
             cursor: pointer;
             margin-top: 6px;
             transition: all 0.2s;
@@ -368,10 +367,10 @@
             border: none;
             background: rgba(0,122,255,0.15);
             color: #003a8c;
-            padding: 5px 10px;
-            border-radius: 8px;
-            font-size: 0.75em;
-            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 0.68em;
+            font-weight: 600;
             cursor: pointer;
             transition: background 0.2s ease;
         }
@@ -4266,6 +4265,7 @@
                     cancelReply();
                 }
                 messagesRef.push(newMessage);
+                showToast('✅ Video enviado');
             } catch (err) {
                 console.error('Error al enviar video:', err);
                 alert('Error al procesar el video');
