@@ -138,17 +138,25 @@
             text-transform: none;
         }
 
-        /* Botón de ayuda */
+        /* Botón principal Entrar al Chat - SIEMPRE grande */
+        #start-chat-button {
+            padding: 14px 28px !important;
+            font-size: 1.15em !important;
+            font-weight: 600;
+            min-width: 200px;
+        }
+
+        /* Botón de ayuda - MUY pequeño */
         .help-btn {
             background: none;
-            border: 1px solid rgba(0,122,255,0.3);
+            border: 1px solid rgba(0,122,255,0.25);
             color: #007aff;
-            padding: 3px 6px;
-            border-radius: 8px;
-            font-size: 0.55em;
-            font-weight: 500;
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-size: 0.5em;
+            font-weight: 400;
             cursor: pointer;
-            margin-top: 3px;
+            margin-top: 2px;
             transition: all 0.2s;
         }
         .help-btn:hover {
@@ -366,12 +374,12 @@
         }
         .share-btn {
             border: none;
-            background: rgba(0,122,255,0.15);
+            background: rgba(0,122,255,0.12);
             color: #003a8c;
-            padding: 1px 5px;
-            border-radius: 4px;
-            font-size: 0.55em;
-            font-weight: 500;
+            padding: 1px 4px;
+            border-radius: 3px;
+            font-size: 0.5em;
+            font-weight: 400;
             cursor: pointer;
             transition: background 0.2s ease;
         }
@@ -1086,10 +1094,16 @@
              #name-prompt h2 {
                  font-size: 1.15em;
              }
-             #name-prompt input, #name-prompt button {
-                 font-size: 0.9em;
-                 padding: 8px 10px;
-             }
+             #name-prompt input,
+            #name-prompt button:not(#start-chat-button) {
+                font-size: 0.9em;
+                padding: 8px 10px;
+            }
+
+            #start-chat-button {
+                padding: 14px 28px !important;
+                font-size: 1.15em !important;
+            }
              #bottom-fixed-area {
                  padding: 6px 10px;
              }
@@ -3212,7 +3226,8 @@
         const lockChatButton = document.getElementById('lock-chat-button');
 
         // Show a password modal and return a promise that resolves true/false
-        function showPasswordModal(title, correctPin){
+        // Para palabra clave, usar caseInsensitive=true
+        function showPasswordModal(title, correctPin, caseInsensitive = false){
             const pinToCheck = correctPin || CLEAR_CHAT_PASSWORD;
             return new Promise(resolve => {
                 pwTitle.textContent = title || 'Ingresa la clave';
@@ -3226,8 +3241,13 @@
                 pwInput.addEventListener('keypress', onKey);
 
                 document.getElementById('pw-modal-ok').onclick = () => {
-                    const val = pwInput.value.trim();
-                    if(val === pinToCheck){
+                    let val = pwInput.value.trim();
+                    let check = pinToCheck;
+                    if (caseInsensitive) {
+                        val = val.toLowerCase();
+                        check = String(check).toLowerCase();
+                    }
+                    if(val === check){
                         cleanup(); resolve(true);
                     } else {
                         pwError.textContent = 'Clave incorrecta';
@@ -3379,7 +3399,7 @@
                 const ok = await showPasswordModal('Ingresa el PIN actual del canal', config.pin);
                 if (!ok) return;
             } else {
-                const ok = await showPasswordModal('Ingresa la Palabra Clave del canal', config.keyword);
+                const ok = await showPasswordModal('Ingresa la Palabra Clave del canal', config.keyword, true);
                 if (!ok) return;
             }
             const newPin = await showPromptModal('Ingresa el nuevo PIN', 'Nuevo PIN');
@@ -3410,7 +3430,7 @@
                 return;
             }
 
-            const ok = await showPasswordModal('Ingresa la Palabra Clave del canal', config.keyword);
+            const ok = await showPasswordModal('Ingresa la Palabra Clave del canal', config.keyword, true);
             if (!ok) return;
 
             // Mostrar modal de opciones de admin
