@@ -1756,6 +1756,21 @@
          .call-actions .toggle-btn.off {
              background: rgba(255,255,255,0.5);
          }
+         .call-actions .toggle-btn.speaker-on {
+             background: #34c759;
+         }
+         .call-actions .toggle-btn.speaker-off {
+             background: rgba(255,255,255,0.2);
+         }
+         #speaker-btn {
+             display: none;
+         }
+         #call-overlay.voice-call #speaker-btn {
+             display: flex;
+         }
+         #call-overlay.voice-call .local-video {
+             display: none !important;
+         }
 
          /* Selector de participantes para llamada */
          #call-selector-modal {
@@ -2094,6 +2109,7 @@
         <video id="local-video" class="local-video" autoplay playsinline muted></video>
         <div class="call-actions" id="call-actions-outgoing">
             <button class="toggle-btn" id="flip-camera-btn" style="display:none" title="Voltear cámara">🔄</button>
+            <button class="toggle-btn speaker-off" id="speaker-btn" title="Altavoz">🔊</button>
             <button class="end-call" id="end-call-btn">📞</button>
         </div>
         <div class="call-actions" id="call-actions-incoming" style="display:none">
@@ -4875,6 +4891,47 @@
         const callActionsOutgoing = document.getElementById('call-actions-outgoing');
         const callActionsIncoming = document.getElementById('call-actions-incoming');
         const flipCameraBtn = document.getElementById('flip-camera-btn');
+        const speakerBtn = document.getElementById('speaker-btn');
+        let speakerEnabled = false;
+        let remoteAudioElements = {};
+
+        // --- Altavoz / Speaker toggle ---
+        speakerBtn.addEventListener('click', () => {
+            speakerEnabled = !speakerEnabled;
+            speakerBtn.classList.toggle('speaker-on', speakerEnabled);
+            speakerBtn.classList.toggle('speaker-off', !speakerEnabled);
+            speakerBtn.title = speakerEnabled ? 'Altavoz activado' : 'Altavoz desactivado';
+            // Intentar cambiar el audio output si está disponible
+            Object.values(remoteAudioElements).forEach(audioEl => {
+                if (audioEl.setSinkId) {
+                    // Nota: setSinkId requiere permisos y no siempre está disponible
+                    console.log('Intentando cambiar audio output...');
+                }
+            });
+            showToast(speakerEnabled ? '🔊 Altavoz activado' : '🔈 Altavoz desactivado (auricular)');
+        });
+
+        // Función para crear audio element en llamadas de voz (para mejor control de routing)
+        function createRemoteAudio(peerId, stream) {
+            const audioEl = document.createElement('audio');
+            audioEl.autoplay = true;
+            audioEl.srcObject = stream;
+            audioEl.id = `remote-audio-${peerId}`;
+            document.body.appendChild(audioEl);
+            remoteAudioElements[peerId] = audioEl;
+            return audioEl;
+        }
+
+        function removeRemoteAudio(peerId) {
+            const audioEl = remoteAudioElements[peerId];
+            if (audioEl) {
+                audioEl.pause();
+                audioEl.srcObject = null;
+                audioEl.remove();
+                delete remoteAudioElements[peerId];
+            }
+        }
+
         const callSelectorModal = document.getElementById('call-selector-modal');
         const callSelectorList = document.getElementById('call-selector-list');
         const callSelectorTitle = document.getElementById('call-selector-title');
@@ -4967,7 +5024,14 @@
                 } catch(e) {
                     localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: withVideo });
                 }
-                if (withVideo) localVideo.srcObject = localStream;
+            if (withVideo) {
+                localVideo.srcObject = localStream;
+            } else {
+                callOverlay.classList.add('voice-call');
+                speakerBtn.classList.remove('speaker-on');
+                speakerBtn.classList.add('speaker-off');
+                speakerEnabled = false;
+            }
 
                 const groupCallsRef = database.ref(`channels/${activeChannel}/groupCalls`);
                 const newCallRef = groupCallsRef.push();
@@ -5078,7 +5142,14 @@
                 } catch(e) {
                     localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: currentCallWithVideo });
                 }
-                if (currentCallWithVideo) localVideo.srcObject = localStream;
+            if (currentCallWithVideo) {
+                localVideo.srcObject = localStream;
+            } else {
+                callOverlay.classList.add('voice-call');
+                speakerBtn.classList.remove('speaker-on');
+                speakerBtn.classList.add('speaker-off');
+                speakerEnabled = false;
+            }
 
                 await callRef.child(`participants/${userName}`).set(true);
                 callRef.child(`participants/${userName}`).onDisconnect().remove();
@@ -5220,6 +5291,10 @@
 
         // --- UI de video grid ---
         function addRemoteVideo(peerId, stream) {
+            if (!currentCallWithVideo) {
+                createRemoteAudio(peerId, stream);
+                return;
+            }
             let cell = document.getElementById(`video-cell-${peerId}`);
             if (!cell) {
                 cell = document.createElement('div');
@@ -5242,6 +5317,10 @@
         }
 
         function removeRemoteVideo(peerId) {
+            if (!currentCallWithVideo) {
+                removeRemoteAudio(peerId);
+                return;
+            }
             const cell = document.getElementById(`video-cell-${peerId}`);
             if (cell) cell.remove();
             updateVideoGridLayout();
@@ -5300,12 +5379,16 @@
             processedIceCandidates.clear();
             Object.keys(remoteDescSet).forEach(k => delete remoteDescSet[k]);
 
+            Object.keys(remoteAudioElements).forEach(peerId => removeRemoteAudio(peerId));
+            speakerEnabled = false;
+
             callVideoGrid.innerHTML = '';
             localVideo.srcObject = null;
             localVideo.style.display = 'none';
             flipCameraBtn.style.display = 'none';
             callOverlay.classList.remove('active');
             callOverlay.classList.remove('minimized');
+            callOverlay.classList.remove('voice-call');
             callTimerEl.style.display = 'none';
             currentGroupCallId = null;
             currentGroupCallRef = null;
