@@ -1690,6 +1690,123 @@
              background: rgba(255,255,255,0.5);
          }
 
+         /* Selector de participantes para llamada */
+         #call-selector-modal {
+             display: none;
+             position: fixed;
+             inset: 0;
+             background: rgba(0,0,0,0.4);
+             z-index: 10001;
+             align-items: center;
+             justify-content: center;
+             backdrop-filter: blur(4px);
+         }
+         #call-selector-modal.active { display: flex; }
+         .call-selector-card {
+             background: #fff;
+             border-radius: 14px;
+             padding: 24px;
+             width: 90%;
+             max-width: 340px;
+             box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+         }
+         .call-selector-card h3 {
+             font-size: 1.1em;
+             margin: 0 0 16px 0;
+             color: #1c1c1e;
+             text-align: center;
+         }
+         .call-selector-list {
+             max-height: 250px;
+             overflow-y: auto;
+             display: flex;
+             flex-direction: column;
+             gap: 4px;
+             margin-bottom: 16px;
+         }
+         .call-selector-item {
+             display: flex;
+             align-items: center;
+             gap: 10px;
+             padding: 10px 12px;
+             border-radius: 8px;
+             cursor: pointer;
+             transition: background 0.15s;
+             margin: 0;
+         }
+         .call-selector-item:hover { background: #f2f2f7; }
+         .call-selector-item input[type="checkbox"] {
+             width: 18px;
+             height: 18px;
+             accent-color: #007aff;
+         }
+         .call-selector-actions {
+             display: flex;
+             gap: 10px;
+             justify-content: center;
+         }
+         .call-selector-actions button {
+             padding: 10px 20px;
+             border: none;
+             border-radius: 10px;
+             font-size: 0.95em;
+             font-weight: 600;
+             cursor: pointer;
+         }
+         .call-selector-cancel {
+             background: #e5e5ea;
+             color: #1c1c1e;
+         }
+         .call-selector-start {
+             background: #34c759;
+             color: white;
+         }
+         .call-selector-start:hover { background: #2db84e; }
+         .call-no-users {
+             text-align: center;
+             padding: 20px;
+             color: #8e8e93;
+             font-size: 0.9em;
+         }
+
+         /* Video grid en llamada grupal */
+         .call-video-grid {
+             display: grid;
+             gap: 8px;
+             width: 90%;
+             max-width: 600px;
+             max-height: 55vh;
+             margin-bottom: 16px;
+         }
+         .call-video-grid.grid-1 { grid-template-columns: 1fr; }
+         .call-video-grid.grid-2 { grid-template-columns: 1fr 1fr; }
+         .call-video-grid.grid-3,
+         .call-video-grid.grid-4 { grid-template-columns: 1fr 1fr; }
+         .call-video-grid.grid-5,
+         .call-video-grid.grid-6 { grid-template-columns: 1fr 1fr 1fr; }
+         .call-video-cell {
+             position: relative;
+             border-radius: 12px;
+             overflow: hidden;
+             background: #222;
+             aspect-ratio: 4/3;
+         }
+         .call-video-cell video {
+             width: 100%;
+             height: 100%;
+             object-fit: cover;
+         }
+         .call-video-cell .video-label {
+             position: absolute;
+             bottom: 4px;
+             left: 4px;
+             background: rgba(0,0,0,0.6);
+             color: white;
+             font-size: 0.7em;
+             padding: 2px 6px;
+             border-radius: 4px;
+         }
+
          /* Estilos para el botón de configuración en general */
          #settings-button {
              /* Ajuste de tamaño y posición */
@@ -1887,12 +2004,24 @@
              </div>
     </div>
 
+    <!-- Call Participant Selector -->
+    <div id="call-selector-modal">
+        <div class="call-selector-card">
+            <h3 id="call-selector-title">Selecciona participantes</h3>
+            <div class="call-selector-list" id="call-selector-list"></div>
+            <div class="call-selector-actions">
+                <button class="call-selector-cancel" id="call-selector-cancel">Cancelar</button>
+                <button class="call-selector-start" id="call-selector-start">Llamar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Call Overlay -->
     <div id="call-overlay">
         <div class="call-status" id="call-status">Llamando...</div>
         <div class="call-name" id="call-peer-name"></div>
         <div class="call-timer" id="call-timer" style="display:none">00:00</div>
-        <video id="remote-video" class="remote-video" autoplay playsinline></video>
+        <div class="call-video-grid" id="call-video-grid"></div>
         <video id="local-video" class="local-video" autoplay playsinline muted></video>
         <div class="call-actions" id="call-actions-outgoing">
             <button class="toggle-btn" id="flip-camera-btn" style="display:none" title="Voltear cámara">🔄</button>
@@ -2442,6 +2571,7 @@
                     setTypingStatus(false);
                     cancelEdit();
                     messageInput.style.height = 'auto';
+                    messageInput.focus();
                 }).catch((error) => {
                     console.error("Error al editar mensaje:", error);
                 });
@@ -2476,6 +2606,7 @@
                     setTypingStatus(false);
                     cancelReply();
                     messageInput.style.height = 'auto';
+                    messageInput.focus();
                 })
                 .catch((error) => {
                     console.error("Error al enviar mensaje a Realtime Database:", error);
@@ -2484,6 +2615,8 @@
 
         // Listener para el botón de enviar texto
         sendButton.addEventListener('click', sendMessage);
+        // Evitar que el botón de enviar robe el foco del textarea (mantener teclado abierto en móvil)
+        sendButton.addEventListener('touchstart', (e) => { e.preventDefault(); sendMessage(); });
 
         // Permitir presionar Enter en el campo de mensaje de texto (solo si no hay Shift)
         messageInput.addEventListener('keypress', (event) => {
@@ -3799,7 +3932,7 @@
                  const bottomAreaHeight = bottomFixedArea.offsetHeight;
                  // Añadir un buffer más grande para asegurar espacio suficiente
                  // Puedes ajustar este valor (80) para aumentar o disminuir el espacio inferior
-                 const newPaddingBottom = bottomAreaHeight + 80; // <--- Aquí puedes modificar el valor del buffer
+                 const newPaddingBottom = bottomAreaHeight + 10; // Buffer mínimo para que quede pegado
                  chatBox.style.paddingBottom = `${newPaddingBottom}px`;
                  console.log(`[${userName}] Adjusted paddingBottom of chatBox to ${chatBox.style.paddingBottom}`); // Debugging log con nombre de usuario
                  console.log(`[${userName}] bottomFixedArea.offsetHeight: ${bottomAreaHeight}`); // Debugging log con nombre de usuario
@@ -4655,7 +4788,7 @@
         }
 
         // =============================================
-        // === LLAMADAS WebRTC + Firebase Signaling  ===
+        // === LLAMADAS GRUPALES WebRTC + Firebase    ===
         // =============================================
         const voiceCallBtn = document.getElementById('voice-call-button');
         const videoCallBtn = document.getElementById('video-call-button');
@@ -4663,23 +4796,31 @@
         const callStatusEl = document.getElementById('call-status');
         const callPeerNameEl = document.getElementById('call-peer-name');
         const callTimerEl = document.getElementById('call-timer');
-        const remoteVideo = document.getElementById('remote-video');
+        const callVideoGrid = document.getElementById('call-video-grid');
         const localVideo = document.getElementById('local-video');
         const endCallBtn = document.getElementById('end-call-btn');
         const acceptCallBtn = document.getElementById('accept-call-btn');
         const rejectCallBtn = document.getElementById('reject-call-btn');
         const callActionsOutgoing = document.getElementById('call-actions-outgoing');
         const callActionsIncoming = document.getElementById('call-actions-incoming');
+        const flipCameraBtn = document.getElementById('flip-camera-btn');
+        const callSelectorModal = document.getElementById('call-selector-modal');
+        const callSelectorList = document.getElementById('call-selector-list');
+        const callSelectorTitle = document.getElementById('call-selector-title');
+        const callSelectorCancel = document.getElementById('call-selector-cancel');
+        const callSelectorStart = document.getElementById('call-selector-start');
 
-        let peerConnection = null;
+        let peerConnections = {};
         let localStream = null;
-        let callRef = null;
+        let currentGroupCallId = null;
+        let currentGroupCallRef = null;
         let callTimerInterval = null;
         let callSeconds = 0;
-        let currentCallId = null;
-        let isCallInitiator = false;
-        let currentFacingMode = 'user'; // 'user' = frontal, 'environment' = trasera
-        const flipCameraBtn = document.getElementById('flip-camera-btn');
+        let currentCallWithVideo = false;
+        let currentFacingMode = 'user';
+        let callSignalListeners = [];
+        const processedIceCandidates = new Set();
+        const remoteDescSet = {};
 
         const rtcConfig = {
             iceServers: [
@@ -4688,64 +4829,46 @@
             ]
         };
 
-        // Listener para llamadas entrantes
-        function setupCallListener() {
-            if (!activeChannel || !userName) return;
-            const callsRef = database.ref(`channels/${activeChannel}/calls`);
-            callsRef.on('child_added', (snap) => {
-                const call = snap.val();
-                if (call.to === userName && call.status === 'ringing' && !currentCallId) {
-                    receiveCall(snap.key, call);
+        // --- Selector de participantes ---
+        function showCallSelector(withVideo) {
+            presenceRef.once('value').then(snap => {
+                const online = snap.val() || {};
+                const peers = Object.keys(online).filter(n => n !== userName && online[n] === true);
+                if (peers.length === 0) {
+                    alert('No hay nadie en línea para llamar');
+                    return;
                 }
-            });
-            callsRef.on('child_changed', (snap) => {
-                const call = snap.val();
-                if (snap.key === currentCallId) {
-                    if (call.status === 'ended') {
-                        endCall(false);
-                    } else if (call.status === 'answered' && isCallInitiator) {
-                        handleCallAnswered(call);
-                    }
-                    // ICE candidates
-                    if (call.ice_callee && isCallInitiator) {
-                        addIceCandidates(call.ice_callee);
-                    }
-                    if (call.ice_caller && !isCallInitiator) {
-                        addIceCandidates(call.ice_caller);
-                    }
-                }
+                callSelectorTitle.textContent = withVideo ? '📹 Videollamada grupal' : '📞 Llamada grupal';
+                callSelectorList.innerHTML = '';
+                peers.forEach(peer => {
+                    const item = document.createElement('label');
+                    item.classList.add('call-selector-item');
+                    item.innerHTML = `<input type="checkbox" value="${peer}" checked><span>👤 ${peer}</span>`;
+                    callSelectorList.appendChild(item);
+                });
+                currentCallWithVideo = withVideo;
+                callSelectorModal.classList.add('active');
             });
         }
 
-        function addIceCandidates(iceCandidates) {
-            if (!peerConnection || !iceCandidates) return;
-            Object.values(iceCandidates).forEach(c => {
-                if (c && c.candidate) {
-                    peerConnection.addIceCandidate(new RTCIceCandidate(c)).catch(e => console.log('ICE error:', e));
-                }
-            });
-        }
+        callSelectorCancel.addEventListener('click', () => {
+            callSelectorModal.classList.remove('active');
+        });
 
-        // Iniciar llamada
-        async function startCall(withVideo) {
-            // Buscar usuarios online
-            const presSnap = await presenceRef.once('value');
-            const online = presSnap.val() || {};
-            const peers = Object.keys(online).filter(n => n !== userName && online[n] === true);
+        callSelectorStart.addEventListener('click', () => {
+            const checkboxes = callSelectorList.querySelectorAll('input[type="checkbox"]:checked');
+            const selected = Array.from(checkboxes).map(cb => cb.value);
+            if (selected.length === 0) { alert('Selecciona al menos una persona'); return; }
+            callSelectorModal.classList.remove('active');
+            startGroupCall(currentCallWithVideo, selected);
+        });
 
-            if (peers.length === 0) {
-                alert('No hay nadie en línea para llamar');
-                return;
-            }
-
-            // Si hay múltiples, llamar al primero (se puede mejorar con selector)
-            const targetUser = peers.length === 1 ? peers[0] : await selectPeer(peers);
-            if (!targetUser) return;
-
-            isCallInitiator = true;
+        // --- Iniciar llamada grupal ---
+        async function startGroupCall(withVideo, targetUsers) {
+            currentCallWithVideo = withVideo;
             callOverlay.classList.add('active');
             callStatusEl.textContent = 'Llamando...';
-            callPeerNameEl.textContent = targetUser;
+            callPeerNameEl.textContent = targetUsers.join(', ');
             callActionsOutgoing.style.display = 'flex';
             callActionsIncoming.style.display = 'none';
             localVideo.style.display = withVideo ? 'block' : 'none';
@@ -4753,178 +4876,310 @@
             currentFacingMode = 'user';
 
             try {
-                // Usar exact para que Android identifique correctamente la cámara activa
                 try {
                     localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: withVideo ? { facingMode: { exact: 'user' } } : false });
-                } catch(camErr) {
-                    console.warn('exact facingMode falló en startCall, usando fallback:', camErr);
+                } catch(e) {
                     localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: withVideo });
                 }
-                if (withVideo) { localVideo.srcObject = localStream; }
+                if (withVideo) localVideo.srcObject = localStream;
 
-                peerConnection = new RTCPeerConnection(rtcConfig);
-                localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
+                const groupCallsRef = database.ref(`channels/${activeChannel}/groupCalls`);
+                const newCallRef = groupCallsRef.push();
+                currentGroupCallId = newCallRef.key;
+                currentGroupCallRef = newCallRef;
 
-                peerConnection.ontrack = (event) => {
-                    remoteVideo.srcObject = event.streams[0];
-                    if (withVideo) {
-                        remoteVideo.style.display = 'block';
-                        remoteVideo.classList.add('remote-video');
-                    }
-                };
+                const invited = {};
+                targetUsers.forEach(u => invited[u] = true);
 
-                // ICE candidates
-                const callsRef = database.ref(`channels/${activeChannel}/calls`);
-                const newCallRef = callsRef.push();
-                currentCallId = newCallRef.key;
-                callRef = newCallRef;
-
-                peerConnection.onicecandidate = (event) => {
-                    if (event.candidate) {
-                        callRef.child('ice_caller').push(event.candidate.toJSON());
-                    }
-                };
-
-                const offer = await peerConnection.createOffer();
-                await peerConnection.setLocalDescription(offer);
-
-                await callRef.set({
-                    from: userName,
-                    to: targetUser,
+                await newCallRef.set({
+                    initiator: userName,
                     type: withVideo ? 'video' : 'voice',
-                    status: 'ringing',
-                    offer: { type: offer.type, sdp: offer.sdp },
-                    timestamp: Date.now()
+                    status: 'active',
+                    timestamp: Date.now(),
+                    invited: invited,
+                    participants: { [userName]: true }
                 });
 
-                // Auto-cancelar después de 30s sin respuesta
+                // Limpiar al desconectar
+                newCallRef.child(`participants/${userName}`).onDisconnect().remove();
+
+                setupSignalListeners(currentGroupCallId);
+
+                // Auto-cancelar después de 30s si nadie se une
                 setTimeout(() => {
-                    if (currentCallId && callRef) {
-                        callRef.once('value', (s) => {
-                            if (s.val() && s.val().status === 'ringing') {
-                                callRef.update({ status: 'ended' });
-                                endCall(false);
+                    if (currentGroupCallId && currentGroupCallRef) {
+                        currentGroupCallRef.child('participants').once('value', snap => {
+                            const parts = snap.val() || {};
+                            if (Object.keys(parts).length <= 1) {
+                                currentGroupCallRef.update({ status: 'ended' });
+                                endGroupCall(false);
+                                showToast('Nadie contestó la llamada');
                             }
                         });
                     }
                 }, 30000);
 
-            } catch (err) {
-                console.error('Error al iniciar llamada:', err);
+            } catch(err) {
+                console.error('Error al iniciar llamada grupal:', err);
                 alert('No se pudo iniciar la llamada');
-                endCall(false);
+                endGroupCall(false);
             }
         }
 
-        // Selector de usuario cuando hay múltiples online
-        function selectPeer(peers) {
-            return new Promise((resolve) => {
-                const names = peers.join(', ');
-                showPromptModal(`¿A quién llamar? (${names})`, peers[0]).then(name => {
-                    if (name && peers.includes(name)) resolve(name);
-                    else if (name) { alert('Usuario no encontrado'); resolve(null); }
-                    else resolve(null);
-                });
+        // --- Escuchar llamadas entrantes ---
+        function setupGroupCallListener() {
+            if (!activeChannel || !userName) return;
+            const groupCallsRef = database.ref(`channels/${activeChannel}/groupCalls`);
+            groupCallsRef.on('child_added', snap => {
+                const call = snap.val();
+                if (!call || call.status === 'ended') return;
+                if (call.invited && call.invited[userName] && !currentGroupCallId) {
+                    receiveGroupCall(snap.key, call);
+                }
+            });
+            groupCallsRef.on('child_changed', snap => {
+                const call = snap.val();
+                if (!call) return;
+                if (snap.key === currentGroupCallId && call.status === 'ended') {
+                    endGroupCall(false);
+                }
             });
         }
 
-        // Recibir llamada
-        function receiveCall(callId, call) {
-            currentCallId = callId;
-            callRef = database.ref(`channels/${activeChannel}/calls/${callId}`);
-            isCallInitiator = false;
-
+        // --- Recibir llamada grupal ---
+        function receiveGroupCall(callId, call) {
+            if (currentGroupCallId) return;
             callOverlay.classList.add('active');
-            callStatusEl.textContent = call.type === 'video' ? '📹 Videollamada entrante' : '📞 Llamada entrante';
-            callPeerNameEl.textContent = call.from;
+            const invitedList = call.invited ? Object.keys(call.invited) : [];
+            const callerInfo = call.initiator + (invitedList.length > 1 ? ` y ${invitedList.length} más` : '');
+            callStatusEl.textContent = call.type === 'video' ? '📹 Videollamada grupal entrante' : '📞 Llamada grupal entrante';
+            callPeerNameEl.textContent = callerInfo;
             callActionsOutgoing.style.display = 'none';
             callActionsIncoming.style.display = 'flex';
             localVideo.style.display = 'none';
-
-            // Vibrar y sonido
             if (navigator.vibrate) navigator.vibrate([500, 200, 500, 200, 500]);
             playNotificationSound();
+            callOverlay.dataset.incomingCallId = callId;
+            callOverlay.dataset.incomingCallType = call.type;
         }
 
-        // Aceptar llamada
+        // --- Aceptar llamada grupal ---
         acceptCallBtn.addEventListener('click', async () => {
-            if (!currentCallId || !callRef) return;
+            const callId = callOverlay.dataset.incomingCallId;
+            if (!callId) return;
+            const callRef = database.ref(`channels/${activeChannel}/groupCalls/${callId}`);
+            const snap = await callRef.once('value');
+            const call = snap.val();
+            if (!call || call.status === 'ended') {
+                showToast('La llamada ya terminó');
+                callOverlay.classList.remove('active');
+                return;
+            }
+            currentGroupCallId = callId;
+            currentGroupCallRef = callRef;
+            currentCallWithVideo = call.type === 'video';
+
             callActionsIncoming.style.display = 'none';
             callActionsOutgoing.style.display = 'flex';
             callStatusEl.textContent = 'Conectando...';
+            localVideo.style.display = currentCallWithVideo ? 'block' : 'none';
+            flipCameraBtn.style.display = currentCallWithVideo ? 'flex' : 'none';
+            currentFacingMode = 'user';
 
             try {
-                const snap = await callRef.once('value');
-                const call = snap.val();
-                const withVideo = call.type === 'video';
-
-                currentFacingMode = 'user';
                 try {
-                    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: withVideo ? { facingMode: { exact: 'user' } } : false });
-                } catch(camErr) {
-                    console.warn('exact facingMode falló en acceptCall, usando fallback:', camErr);
-                    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: withVideo });
+                    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: currentCallWithVideo ? { facingMode: { exact: 'user' } } : false });
+                } catch(e) {
+                    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: currentCallWithVideo });
                 }
-                if (withVideo) { localVideo.style.display = 'block'; localVideo.srcObject = localStream; flipCameraBtn.style.display = 'flex'; }
+                if (currentCallWithVideo) localVideo.srcObject = localStream;
 
-                peerConnection = new RTCPeerConnection(rtcConfig);
-                localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
+                await callRef.child(`participants/${userName}`).set(true);
+                callRef.child(`participants/${userName}`).onDisconnect().remove();
 
-                peerConnection.ontrack = (event) => {
-                    remoteVideo.srcObject = event.streams[0];
-                    if (withVideo) { remoteVideo.style.display = 'block'; }
-                };
+                const partSnap = await callRef.child('participants').once('value');
+                const parts = partSnap.val() || {};
+                const existingPeers = Object.keys(parts).filter(n => n !== userName);
 
-                peerConnection.onicecandidate = (event) => {
-                    if (event.candidate) {
-                        callRef.child('ice_callee').push(event.candidate.toJSON());
-                    }
-                };
+                setupSignalListeners(callId);
 
-                peerConnection.onconnectionstatechange = () => {
-                    if (peerConnection.connectionState === 'connected') {
-                        callStatusEl.textContent = 'En llamada';
-                        startCallTimer();
-                    }
-                };
+                for (const peer of existingPeers) {
+                    await createOfferToPeer(peer, callId);
+                }
 
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(call.offer));
-                const answer = await peerConnection.createAnswer();
-                await peerConnection.setLocalDescription(answer);
-
-                await callRef.update({
-                    status: 'answered',
-                    answer: { type: answer.type, sdp: answer.sdp }
-                });
-
-                // Agregar ICE del caller si ya llegaron
-                if (call.ice_caller) addIceCandidates(call.ice_caller);
-
-            } catch (err) {
-                console.error('Error al aceptar llamada:', err);
-                endCall(true);
+                if (existingPeers.length > 0) {
+                    callStatusEl.textContent = 'En llamada';
+                    callPeerNameEl.textContent = existingPeers.join(', ');
+                    startCallTimer();
+                }
+            } catch(err) {
+                console.error('Error al aceptar llamada grupal:', err);
+                endGroupCall(true);
             }
         });
 
-        // Manejar respuesta (para el que llama)
-        async function handleCallAnswered(call) {
-            try {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(call.answer));
-                callStatusEl.textContent = 'En llamada';
-                startCallTimer();
+        // --- Crear oferta a un peer ---
+        async function createOfferToPeer(peerId, callId) {
+            const pc = new RTCPeerConnection(rtcConfig);
+            peerConnections[peerId] = pc;
+            if (localStream) {
+                localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+            }
+            pc.ontrack = (event) => { addRemoteVideo(peerId, event.streams[0]); };
+            pc.onconnectionstatechange = () => {
+                if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+                    removeRemoteVideo(peerId);
+                    if (peerConnections[peerId]) { peerConnections[peerId].close(); delete peerConnections[peerId]; }
+                    updateCallUI();
+                } else if (pc.connectionState === 'connected') {
+                    updateCallUI();
+                }
+            };
 
-                peerConnection.onconnectionstatechange = () => {
-                    if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
-                        endCall(true);
-                    }
-                };
-            } catch (err) {
-                console.error('Error en handleCallAnswered:', err);
+            const signalKey = `${userName}_${peerId}`;
+            const signalRef = database.ref(`channels/${activeChannel}/groupCalls/${callId}/signals/${signalKey}`);
+            pc.onicecandidate = (event) => {
+                if (event.candidate) { signalRef.child('ice_offerer').push(event.candidate.toJSON()); }
+            };
+
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            await signalRef.set({ offer: { type: offer.type, sdp: offer.sdp } });
+        }
+
+        // --- Responder a una oferta ---
+        async function answerOffer(peerId, signalKey, offerData, callId) {
+            if (peerConnections[peerId]) return;
+            const pc = new RTCPeerConnection(rtcConfig);
+            peerConnections[peerId] = pc;
+            if (localStream) {
+                localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+            }
+            pc.ontrack = (event) => { addRemoteVideo(peerId, event.streams[0]); };
+            pc.onconnectionstatechange = () => {
+                if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+                    removeRemoteVideo(peerId);
+                    if (peerConnections[peerId]) { peerConnections[peerId].close(); delete peerConnections[peerId]; }
+                    updateCallUI();
+                } else if (pc.connectionState === 'connected') {
+                    if (!callTimerInterval) startCallTimer();
+                    callStatusEl.textContent = 'En llamada';
+                    updateCallUI();
+                }
+            };
+
+            const signalRef = database.ref(`channels/${activeChannel}/groupCalls/${callId}/signals/${signalKey}`);
+            pc.onicecandidate = (event) => {
+                if (event.candidate) { signalRef.child('ice_answerer').push(event.candidate.toJSON()); }
+            };
+
+            await pc.setRemoteDescription(new RTCSessionDescription(offerData));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            await signalRef.update({ answer: { type: answer.type, sdp: answer.sdp } });
+        }
+
+        // --- Listeners de señalización ---
+        function setupSignalListeners(callId) {
+            const signalsRef = database.ref(`channels/${activeChannel}/groupCalls/${callId}/signals`);
+            const onAdded = signalsRef.on('child_added', snap => {
+                handleSignalChange(snap.key, snap.val(), callId);
+            });
+            const onChanged = signalsRef.on('child_changed', snap => {
+                handleSignalChange(snap.key, snap.val(), callId);
+            });
+            callSignalListeners.push({ ref: signalsRef, event: 'child_added', cb: onAdded });
+            callSignalListeners.push({ ref: signalsRef, event: 'child_changed', cb: onChanged });
+        }
+
+        function handleSignalChange(signalKey, signalData, callId) {
+            if (!signalData) return;
+            const parts = signalKey.split('_');
+            if (parts.length < 2) return;
+            const offerer = parts[0];
+            const answerer = parts.slice(1).join('_');
+
+            // Soy el answerer y hay oferta sin respuesta → responder
+            if (answerer === userName && signalData.offer && !signalData.answer) {
+                answerOffer(offerer, signalKey, signalData.offer, callId);
+            }
+
+            // Soy el offerer y hay respuesta → setRemoteDescription
+            if (offerer === userName && signalData.answer && peerConnections[answerer]) {
+                if (!remoteDescSet[answerer]) {
+                    remoteDescSet[answerer] = true;
+                    peerConnections[answerer].setRemoteDescription(new RTCSessionDescription(signalData.answer))
+                        .catch(e => console.error('SRD error:', e));
+                }
+            }
+
+            // ICE candidates
+            if (offerer === userName && signalData.ice_answerer && peerConnections[answerer]) {
+                addIceCandidatesToPC(peerConnections[answerer], signalData.ice_answerer);
+            }
+            if (answerer === userName && signalData.ice_offerer && peerConnections[offerer]) {
+                addIceCandidatesToPC(peerConnections[offerer], signalData.ice_offerer);
             }
         }
 
-        // Timer de llamada
+        function addIceCandidatesToPC(pc, iceCandidates) {
+            if (!pc || !iceCandidates) return;
+            Object.entries(iceCandidates).forEach(([key, c]) => {
+                if (c && c.candidate && !processedIceCandidates.has(key)) {
+                    processedIceCandidates.add(key);
+                    pc.addIceCandidate(new RTCIceCandidate(c)).catch(e => console.log('ICE error:', e));
+                }
+            });
+        }
+
+        // --- UI de video grid ---
+        function addRemoteVideo(peerId, stream) {
+            let cell = document.getElementById(`video-cell-${peerId}`);
+            if (!cell) {
+                cell = document.createElement('div');
+                cell.classList.add('call-video-cell');
+                cell.id = `video-cell-${peerId}`;
+                const video = document.createElement('video');
+                video.autoplay = true;
+                video.playsInline = true;
+                video.srcObject = stream;
+                const label = document.createElement('div');
+                label.classList.add('video-label');
+                label.textContent = peerId;
+                cell.appendChild(video);
+                cell.appendChild(label);
+                callVideoGrid.appendChild(cell);
+            } else {
+                cell.querySelector('video').srcObject = stream;
+            }
+            updateVideoGridLayout();
+        }
+
+        function removeRemoteVideo(peerId) {
+            const cell = document.getElementById(`video-cell-${peerId}`);
+            if (cell) cell.remove();
+            updateVideoGridLayout();
+        }
+
+        function updateVideoGridLayout() {
+            const count = callVideoGrid.children.length;
+            callVideoGrid.className = 'call-video-grid';
+            if (count <= 1) callVideoGrid.classList.add('grid-1');
+            else if (count <= 2) callVideoGrid.classList.add('grid-2');
+            else if (count <= 4) callVideoGrid.classList.add('grid-4');
+            else callVideoGrid.classList.add('grid-6');
+        }
+
+        function updateCallUI() {
+            const connectedPeers = Object.keys(peerConnections);
+            if (connectedPeers.length > 0) {
+                callPeerNameEl.textContent = connectedPeers.join(', ');
+            }
+        }
+
+        // --- Timer ---
         function startCallTimer() {
+            if (callTimerInterval) return;
             callSeconds = 0;
             callTimerEl.style.display = 'block';
             callTimerInterval = setInterval(() => {
@@ -4935,162 +5190,97 @@
             }, 1000);
         }
 
-        // Terminar llamada
-        function endCall(updateRemote) {
+        // --- Terminar llamada grupal ---
+        function endGroupCall(updateRemote) {
             if (callTimerInterval) { clearInterval(callTimerInterval); callTimerInterval = null; }
-            if (peerConnection) { peerConnection.close(); peerConnection = null; }
+            Object.keys(peerConnections).forEach(peerId => {
+                if (peerConnections[peerId]) peerConnections[peerId].close();
+            });
+            peerConnections = {};
             if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
-            if (updateRemote && callRef) { callRef.update({ status: 'ended' }); }
 
-            remoteVideo.srcObject = null;
+            if (updateRemote && currentGroupCallRef) {
+                currentGroupCallRef.child(`participants/${userName}`).remove();
+                currentGroupCallRef.child('participants').once('value', snap => {
+                    const parts = snap.val() || {};
+                    if (Object.keys(parts).length === 0) {
+                        currentGroupCallRef.update({ status: 'ended' });
+                    }
+                });
+            }
+
+            callSignalListeners.forEach(l => l.ref.off(l.event, l.cb));
+            callSignalListeners = [];
+            processedIceCandidates.clear();
+            Object.keys(remoteDescSet).forEach(k => delete remoteDescSet[k]);
+
+            callVideoGrid.innerHTML = '';
             localVideo.srcObject = null;
-            remoteVideo.style.display = 'none';
             localVideo.style.display = 'none';
             flipCameraBtn.style.display = 'none';
             callOverlay.classList.remove('active');
             callTimerEl.style.display = 'none';
-            currentCallId = null;
-            callRef = null;
-            isCallInitiator = false;
-            if (navigator.vibrate) navigator.vibrate(0); // Detener vibración
+            currentGroupCallId = null;
+            currentGroupCallRef = null;
+            delete callOverlay.dataset.incomingCallId;
+            delete callOverlay.dataset.incomingCallType;
+            if (navigator.vibrate) navigator.vibrate(0);
         }
 
-        // Voltear cámara (front/back) — Android-compatible (v3)
-        let cachedVideoDevices = [];
-        let currentCameraIndex = 0;
+        // --- Event listeners ---
+        endCallBtn.addEventListener('click', () => endGroupCall(true));
+        rejectCallBtn.addEventListener('click', () => {
+            if (callOverlay.dataset.incomingCallId) {
+                database.ref(`channels/${activeChannel}/groupCalls/${callOverlay.dataset.incomingCallId}/invited/${userName}`).remove();
+            }
+            endGroupCall(false);
+        });
 
+        voiceCallBtn.addEventListener('click', () => showCallSelector(false));
+        videoCallBtn.addEventListener('click', () => showCallSelector(true));
+
+        // --- Voltear cámara (group-compatible) ---
         flipCameraBtn.addEventListener('click', async () => {
-            if (!localStream || !peerConnection) return;
+            if (!localStream) return;
             flipCameraBtn.disabled = true;
             const prevFacing = currentFacingMode;
             currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
-            console.log('🔄 Flip cámara → ', currentFacingMode);
 
-            // 1. Enumerar y cachear dispositivos (con track activo para tener labels)
-            try {
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                cachedVideoDevices = devices.filter(d => d.kind === 'videoinput');
-                console.log('📹 Cámaras:', cachedVideoDevices.map((d, i) => `[${i}] ${d.label || 'cam'+i} id:${d.deviceId.substr(0,8)}`));
-            } catch(e) { console.warn('Enum falló:', e); }
+            const videoSenders = [];
+            Object.values(peerConnections).forEach(pc => {
+                const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+                if (sender) videoSenders.push(sender);
+            });
 
-            // 2. Guardar referencia al sender de video ANTES de parar (track puede quedar null)
-            const videoSender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video')
-                             || peerConnection.getSenders().find(s => !s.track || s.track.kind === 'video');
-
-            // 3. PARAR track viejo (liberar hardware — obligatorio en Android)
-            const oldVideoTrack = localStream.getVideoTracks()[0];
-            if (oldVideoTrack) {
-                oldVideoTrack.stop();
-                localStream.removeTrack(oldVideoTrack);
-                console.log('⏹️ Track viejo detenido');
-            }
-
-            // 4. Esperar a que Android libere el hardware de cámara
+            const oldTrack = localStream.getVideoTracks()[0];
+            if (oldTrack) { oldTrack.stop(); localStream.removeTrack(oldTrack); }
             await new Promise(r => setTimeout(r, 300));
 
-            // 5. Intentar obtener la otra cámara con múltiples estrategias
             let newStream = null;
-            const nextIndex = (currentCameraIndex + 1) % Math.max(cachedVideoDevices.length, 2);
-
-            // Estrategia A: deviceId del siguiente dispositivo en la lista
-            if (!newStream && cachedVideoDevices.length > 1) {
-                try {
-                    const targetDevice = cachedVideoDevices[nextIndex];
-                    console.log('📹 [A] deviceId:', targetDevice.deviceId.substr(0,8), targetDevice.label);
-                    newStream = await navigator.mediaDevices.getUserMedia({
-                        audio: false, video: { deviceId: { exact: targetDevice.deviceId } }
-                    });
-                    currentCameraIndex = nextIndex;
-                    console.log('✅ [A] deviceId funcionó');
-                } catch(e) { console.warn('⚠️ [A] deviceId falló:', e.name); newStream = null; }
-            }
-
-            // Estrategia B: facingMode con exact
+            try { newStream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { exact: currentFacingMode } } }); } catch(e) { newStream = null; }
+            if (!newStream) { try { newStream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: currentFacingMode } }); } catch(e) { newStream = null; } }
             if (!newStream) {
-                try {
-                    console.log('📹 [B] facingMode exact:', currentFacingMode);
-                    newStream = await navigator.mediaDevices.getUserMedia({
-                        audio: false, video: { facingMode: { exact: currentFacingMode } }
-                    });
-                    console.log('✅ [B] facingMode exact funcionó');
-                } catch(e) { console.warn('⚠️ [B] facingMode exact falló:', e.name); newStream = null; }
-            }
-
-            // Estrategia C: re-enumerar después de liberar y probar cada cámara
-            if (!newStream && cachedVideoDevices.length > 1) {
-                try {
-                    const freshDevices = await navigator.mediaDevices.enumerateDevices();
-                    const freshVideo = freshDevices.filter(d => d.kind === 'videoinput');
-                    for (let i = 0; i < freshVideo.length; i++) {
-                        if (i === currentCameraIndex) continue;
-                        try {
-                            console.log('📹 [C] Probando cámara', i, freshVideo[i].deviceId.substr(0,8));
-                            newStream = await navigator.mediaDevices.getUserMedia({
-                                audio: false, video: { deviceId: { exact: freshVideo[i].deviceId } }
-                            });
-                            currentCameraIndex = i;
-                            console.log('✅ [C] Cámara', i, 'funcionó');
-                            break;
-                        } catch(e) { newStream = null; }
-                    }
-                } catch(e) { console.warn('⚠️ [C] Re-enum falló:', e); }
-            }
-
-            // Estrategia D: facingMode sin exact (último recurso)
-            if (!newStream) {
-                try {
-                    console.log('📹 [D] facingMode sin exact:', currentFacingMode);
-                    newStream = await navigator.mediaDevices.getUserMedia({
-                        audio: false, video: { facingMode: currentFacingMode }
-                    });
-                    console.log('✅ [D] facingMode sin exact funcionó');
-                } catch(e) { console.warn('⚠️ [D] Falló:', e.name); }
-            }
-
-            // Si todo falló, recuperar la cámara anterior
-            if (!newStream) {
-                console.error('❌ No se pudo cambiar cámara, recuperando anterior');
                 currentFacingMode = prevFacing;
-                try {
-                    newStream = await navigator.mediaDevices.getUserMedia({
-                        audio: false, video: { facingMode: prevFacing }
-                    });
-                } catch(e) { console.error('❌ No se pudo recuperar cámara:', e); }
+                try { newStream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: prevFacing } }); } catch(e) {}
                 if (!newStream) { flipCameraBtn.disabled = false; return; }
             }
 
-            // 6. Aplicar nuevo track
-            try {
-                const newVideoTrack = newStream.getVideoTracks()[0];
-                if (videoSender) {
-                    await videoSender.replaceTrack(newVideoTrack);
-                }
-                localStream.addTrack(newVideoTrack);
-                localVideo.srcObject = null;
-                localVideo.srcObject = localStream;
-                console.log('✅ Nueva cámara aplicada — deviceId:', newVideoTrack.getSettings().deviceId?.substr(0,8));
-            } catch (err) {
-                console.error('Error al aplicar nueva cámara:', err);
-                currentFacingMode = prevFacing;
-            }
+            const newTrack = newStream.getVideoTracks()[0];
+            for (const sender of videoSenders) { await sender.replaceTrack(newTrack); }
+            localStream.addTrack(newTrack);
+            localVideo.srcObject = null;
+            localVideo.srcObject = localStream;
             flipCameraBtn.disabled = false;
         });
 
-        endCallBtn.addEventListener('click', () => endCall(true));
-        rejectCallBtn.addEventListener('click', () => endCall(true));
-
-        voiceCallBtn.addEventListener('click', () => startCall(false));
-        videoCallBtn.addEventListener('click', () => startCall(true));
-
-        // Agregar setupCallListener al initializeChat
+        // Hook into initializeChat
         const origInitializeChat = initializeChat;
         initializeChat = function() {
             origInitializeChat();
-            setupCallListener();
+            setupGroupCallListener();
         };
-        // Si ya se inicializó (auto-login), activar listener
         if (activeChannel && userName) {
-            setupCallListener();
+            setupGroupCallListener();
         }
 
 
