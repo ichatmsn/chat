@@ -413,6 +413,8 @@
             gap: 4px;
             -webkit-overflow-scrolling: touch;
             scrollbar-width: none;
+            position: relative;
+            z-index: 501;
         }
         #channel-tabs::-webkit-scrollbar { display: none; }
         #channel-tabs.visible { display: flex; }
@@ -868,10 +870,10 @@
         #chat-interface {
             display: none;
             flex-direction: column;
-            flex-grow: 1; /* Asegura que la interfaz de chat ocupe el espacio disponible */
-             /* Ajuste clave: Darle una altura al contenedor flex para que los hijos flex-grow funcionen */
-            height: 100%;
-            position: relative; /* Necesario para posicionar el selector de emojis si se pone fuera del input-area */
+            flex: 1 1 0;       /* Ocupa espacio restante DESPUÉS de #channel-tabs */
+            min-height: 0;     /* Permite shrink correcto en flex */
+            position: relative; /* Necesario para posicionar el selector de emojis y lock overlay */
+            overflow: hidden;
         }
 
         /* Estilos para el selector de emojis */
@@ -1723,13 +1725,16 @@
          #call-overlay.minimized .call-name,
          #call-overlay.minimized .call-actions,
          #call-overlay.minimized .local-video,
+         #call-overlay.minimized #local-video,
          #call-overlay.minimized #minimize-call-btn { display: none !important; }
          #call-overlay.minimized .call-video-grid {
              display: flex !important;
              position: absolute;
              top: 0; left: 0; right: 0; bottom: 0;
+             width: 100%; height: 100%;
              border-radius: 16px;
              overflow: hidden;
+             z-index: 5;
          }
          #call-overlay.minimized .call-video-grid video {
              width: 100%; height: 100%;
@@ -1740,6 +1745,7 @@
          #call-overlay.minimized .call-video-grid .call-video-cell {
              position: absolute;
              top: 0; left: 0; right: 0; bottom: 0;
+             width: 100%; height: 100%;
          }
          #call-overlay.minimized .call-timer {
              position: absolute;
@@ -5410,37 +5416,22 @@
         });
 
         // --- Altavoz / Speaker toggle ---
-        // AudioContext para controlar audio y evitar que el sensor de proximidad cambie el routing
-        let callAudioContext = null;
-        let callGainNode = null;
-
-        function getCallAudioContext() {
-            if (!callAudioContext || callAudioContext.state === 'closed') {
-                callAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-                callGainNode = callAudioContext.createGain();
-                callGainNode.connect(callAudioContext.destination);
-            }
-            if (callAudioContext.state === 'suspended') {
-                callAudioContext.resume();
-            }
-            return { ctx: callAudioContext, gain: callGainNode };
-        }
-
+        // IMPORTANTE: En móviles (Android/iOS), el sensor de proximidad es controlado
+        // por el sistema operativo cuando hay una PeerConnection WebRTC activa.
+        // NO se puede desactivar desde JavaScript en un navegador web.
+        // El audio se enruta al auricular automáticamente al acercar el teléfono a la oreja
+        // y vuelve al altavoz al alejarlo. Esto es comportamiento NORMAL de llamada.
+        // El toggle de altavoz solo controla el volumen como referencia adicional.
         function applyAudioRouting() {
-            // Todo el audio pasa por AudioContext → GainNode
-            // Los <audio>/<video> elements se mantienen SILENCIADOS para evitar
-            // que el sensor de proximidad los detecte como "llamada telefónica"
-            const vol = speakerEnabled ? 1.0 : 0.05;
-            if (callGainNode) {
-                callGainNode.gain.value = vol;
-            }
-            // Mantener <audio> elements silenciados siempre (AudioContext maneja el sonido)
+            const vol = speakerEnabled ? 1.0 : 0.15;
             Object.values(remoteAudioElements).forEach(audioEl => {
-                audioEl.volume = 0;
-                audioEl.muted = true;
+                audioEl.volume = vol;
+                audioEl.muted = false;
             });
-            // Videos remotos también silenciados (su audio va por AudioContext)
-            callVideoGrid.querySelectorAll('video').forEach(v => { v.volume = 0; v.muted = true; });
+            callVideoGrid.querySelectorAll('video:not(#local-video)').forEach(v => {
+                v.volume = vol;
+                v.muted = false;
+            });
         }
 
         speakerBtn.addEventListener('click', () => {
@@ -5452,30 +5443,22 @@
             showToast(speakerEnabled ? '🔊 Altavoz activado' : '🔈 Altavoz (auricular)');
         });
 
-        // Función para crear audio element en llamadas de voz (para mejor control de routing)
+        // Función para crear audio element en llamadas de voz
         function createRemoteAudio(peerId, stream) {
             const audioEl = document.createElement('audio');
             audioEl.autoplay = true;
-            audioEl.volume = 0;      // Silenciado - el audio real va por AudioContext
-            audioEl.muted = true;    // Doble silencio para evitar sensor de proximidad
+            audioEl.playsInline = true;
+            audioEl.volume = speakerEnabled ? 1.0 : 0.15;
             audioEl.srcObject = stream;
             audioEl.id = `remote-audio-${peerId}`;
             document.body.appendChild(audioEl);
             remoteAudioElements[peerId] = audioEl;
-            // Conectar a AudioContext - este es el canal de audio real
-            try {
-                const { ctx, gain } = getCallAudioContext();
-                const source = ctx.createMediaStreamSource(stream);
-                source.connect(gain);
-                audioEl._acSource = source;
-            } catch(e) { console.log('AudioContext routing fallback:', e); }
             return audioEl;
         }
 
         function removeRemoteAudio(peerId) {
             const audioEl = remoteAudioElements[peerId];
             if (audioEl) {
-                if (audioEl._acSource) { try { audioEl._acSource.disconnect(); } catch(e){} }
                 audioEl.pause();
                 audioEl.srcObject = null;
                 audioEl.remove();
@@ -5495,6 +5478,10 @@
             e.stopPropagation();
             callOverlay.classList.remove('active');
             callOverlay.classList.add('minimized');
+            // Forzar ocultar video local en miniatura (por si CSS no gana especificidad)
+            if (currentCallWithVideo) {
+                localVideo.style.display = 'none';
+            }
         });
 
         // Drag para mover la llamada minimizada
@@ -5569,6 +5556,10 @@
                 e.stopPropagation();
                 callOverlay.classList.remove('minimized');
                 callOverlay.classList.add('active');
+                // Restaurar video local al expandir
+                if (currentCallWithVideo) {
+                    localVideo.style.display = 'block';
+                }
                 // Reset position al expandir
                 callOverlay.style.left = '';
                 callOverlay.style.top = '';
@@ -5953,16 +5944,8 @@
                 const video = document.createElement('video');
                 video.autoplay = true;
                 video.playsInline = true;
-                video.volume = 0;    // Silenciado - audio va por AudioContext
-                video.muted = true;
+                video.volume = speakerEnabled ? 1.0 : 0.15;
                 video.srcObject = stream;
-                // Conectar audio del stream a AudioContext
-                try {
-                    const { ctx, gain } = getCallAudioContext();
-                    const src = ctx.createMediaStreamSource(stream);
-                    src.connect(gain);
-                    video._acSource = src;
-                } catch(e) { console.log('Video AudioContext fallback:', e); }
                 const label = document.createElement('div');
                 label.classList.add('video-label');
                 label.textContent = peerId;
@@ -5981,11 +5964,7 @@
                 return;
             }
             const cell = document.getElementById(`video-cell-${peerId}`);
-            if (cell) {
-                const vid = cell.querySelector('video');
-                if (vid && vid._acSource) { try { vid._acSource.disconnect(); } catch(e){} }
-                cell.remove();
-            }
+            if (cell) cell.remove();
             updateVideoGridLayout();
         }
 
@@ -6047,12 +6026,6 @@
             }
 
             Object.keys(remoteAudioElements).forEach(peerId => removeRemoteAudio(peerId));
-            // Cerrar AudioContext de llamada
-            if (callAudioContext && callAudioContext.state !== 'closed') {
-                try { callAudioContext.close(); } catch(e) {}
-                callAudioContext = null;
-                callGainNode = null;
-            }
             speakerEnabled = false;
             micMuted = false;
             cameraMuted = false;
