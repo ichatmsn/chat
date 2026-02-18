@@ -2121,6 +2121,7 @@
                      </button>
                  </div>
                  <div id="settings-dropdown">
+                     <button id="home-button">🏠 Inicio</button>
                      <button id="lock-chat-button">🔒 Bloqueo</button>
                      <button id="clear-chat-button">Limpiar Chat</button>
                      <button id="change-name-button">Cambiar Nombre</button>
@@ -2220,6 +2221,7 @@
             <button class="toggle-btn" id="mute-camera-btn" title="Apagar cámara">📷</button>
             <button class="toggle-btn" id="flip-camera-btn" style="display:none" title="Voltear cámara">🔄</button>
             <button class="toggle-btn speaker-off" id="speaker-btn" title="Altavoz">🔊</button>
+            <button class="toggle-btn" id="fullscreen-call-btn" style="display:none" title="Pantalla completa">⛶</button>
             <button class="end-call" id="end-call-btn">📞</button>
         </div>
         <div class="call-actions" id="call-actions-incoming" style="display:none">
@@ -2338,6 +2340,8 @@
                     <p style="font-weight:600; font-size:0.92em; margin:0 0 8px 0;">Usuarios conectados:</p>
                     <div id="owner-users-list" style="max-height:200px; overflow-y:auto;"></div>
                 </div>
+                <hr style="border:none; border-top:1px solid #e5e5ea; margin:4px 0;">
+                <button id="delete-channel-btn" style="width:100%; padding:12px; background:#ff3b30; color:#fff; border:none; border-radius:8px; font-size:0.92em; font-weight:700; cursor:pointer;">🗑️ Eliminar este canal</button>
             </div>
             <div style="text-align:center; margin-top:14px;">
                 <button class="lock-btn secondary" id="owner-modal-close">Cerrar</button>
@@ -3903,7 +3907,9 @@
         }
 
         // Show a text prompt modal (replaces browser prompt)
-        function showPromptModal(title, placeholder){
+        // options: { uppercase: true } para forzar mayúsculas
+        function showPromptModal(title, placeholder, options){
+            const opts = options || {};
             return new Promise(resolve => {
                 promptTitle.textContent = title || 'Ingresa un valor';
                 promptInput.value = '';
@@ -3911,9 +3917,17 @@
                 promptModal.classList.add('active');
                 promptInput.focus();
 
-                function cleanup(){ promptModal.classList.remove('active'); promptInput.removeEventListener('keypress', onKey); }
+                function onInput() {
+                    if (opts.uppercase) {
+                        const pos = promptInput.selectionStart;
+                        promptInput.value = promptInput.value.toUpperCase();
+                        promptInput.setSelectionRange(pos, pos);
+                    }
+                }
+                function cleanup(){ promptModal.classList.remove('active'); promptInput.removeEventListener('keypress', onKey); promptInput.removeEventListener('input', onInput); }
                 function onKey(e){ if(e.key==='Enter') document.getElementById('prompt-modal-ok').click(); }
                 promptInput.addEventListener('keypress', onKey);
+                promptInput.addEventListener('input', onInput);
 
                 document.getElementById('prompt-modal-ok').onclick = () => { const v = promptInput.value.trim(); cleanup(); resolve(v || null); };
                 document.getElementById('prompt-modal-cancel').onclick = () => { cleanup(); resolve(null); };
@@ -3948,6 +3962,25 @@
                 }
             });
         }
+
+        // --- Botón Inicio (volver a pantalla principal) ---
+        document.getElementById('home-button').addEventListener('click', () => {
+            settingsDropdown.style.display = 'none';
+            detachAllListeners();
+            // Limpiar bg listeners
+            Object.keys(bgListeners).forEach(ch => stopBgListener(ch));
+            activeChannel = '';
+            userName = '';
+            localStorage.removeItem('chatName');
+            localStorage.removeItem('chatChannel');
+            localStorage.removeItem('ichat_tabs');
+            chatInterface.style.display = 'none';
+            namePrompt.style.display = 'flex';
+            channelTabsContainer.innerHTML = '';
+            channelTabsContainer.classList.remove('visible');
+            nameInput.value = '';
+            channelInput.value = '';
+        });
 
         lockChatButton.addEventListener('click', () => {
             settingsDropdown.style.display = 'none';
@@ -4014,7 +4047,7 @@
         // --- Lógica para Cambiar Nombre ---
         changeNameButton.addEventListener('click', async () => {
             settingsDropdown.style.display = 'none';
-            const newName = await showPromptModal('Ingresa tu nuevo nombre', 'Nuevo nombre');
+            const newName = await showPromptModal('Ingresa tu nuevo nombre', 'Nuevo nombre', { uppercase: true });
             if (newName && newName !== userName) {
                 // Verificar si el nuevo nombre ya fue usado en este canal
                 const nameTaken = await isNameTakenInChannel(newName, activeChannel);
@@ -4054,7 +4087,7 @@
         // --- Lógica para Cambiar Canal (abre nuevo canal como tab) ---
         document.getElementById('change-channel-button').addEventListener('click', async () => {
             settingsDropdown.style.display = 'none';
-            const newChannel = await showPromptModal('Ingresa el nombre del nuevo canal', 'Canal');
+            const newChannel = await showPromptModal('Ingresa el nombre del nuevo canal', 'Canal', { uppercase: true });
             if (!newChannel) return;
             const cleanChannel = newChannel.trim().toUpperCase().replace(/[.$#\[\]\/]/g, '');
             if (!cleanChannel) return;
@@ -4153,6 +4186,50 @@
         // Cerrar modal de admin
         document.getElementById('owner-modal-close').addEventListener('click', () => {
             document.getElementById('owner-modal').style.display = 'none';
+        });
+
+        // --- Eliminar canal completo ---
+        document.getElementById('delete-channel-btn').addEventListener('click', async () => {
+            if (!activeChannel) return;
+            const confirmed = await showConfirmModal(
+                '🗑️ Eliminar canal',
+                `¿Estás seguro de que deseas eliminar el canal "${activeChannel}"? Se borrará toda la conversación y el canal quedará libre. Esta acción no se puede deshacer.`
+            );
+            if (!confirmed) return;
+            document.getElementById('owner-modal').style.display = 'none';
+            try {
+                // Borrar todo el nodo del canal en Firebase
+                await database.ref(`channels/${activeChannel}`).remove();
+                showToast('🗑️ Canal eliminado correctamente');
+                // Limpiar estado local
+                detachAllListeners();
+                Object.keys(bgListeners).forEach(ch => stopBgListener(ch));
+                // Remover de tabs
+                let tabs = getSavedTabs();
+                tabs = tabs.filter(t => t.channel !== activeChannel);
+                saveTabs(tabs);
+                activeChannel = '';
+                localStorage.removeItem('chatChannel');
+                if (tabs.length > 0) {
+                    // Ir al siguiente tab disponible
+                    activeChannel = tabs[tabs.length - 1].channel;
+                    setupChannelRefs(activeChannel);
+                    localStorage.setItem('chatChannel', activeChannel);
+                    document.getElementById('chat-title').textContent = activeChannel;
+                    initializeChat();
+                    renderTabs();
+                } else {
+                    // No hay más tabs, volver a pantalla principal
+                    localStorage.removeItem('ichat_tabs');
+                    chatInterface.style.display = 'none';
+                    namePrompt.style.display = 'flex';
+                    channelTabsContainer.innerHTML = '';
+                    channelTabsContainer.classList.remove('visible');
+                }
+            } catch(err) {
+                console.error('Error al eliminar canal:', err);
+                showToast('Error al eliminar el canal');
+            }
         });
 
         // Función global para expulsar usuario
@@ -5263,6 +5340,41 @@
         let cameraMuted = false;
         let remoteAudioElements = {};
 
+        // --- Pantalla completa en videollamada ---
+        const fullscreenCallBtn = document.getElementById('fullscreen-call-btn');
+        fullscreenCallBtn.addEventListener('click', () => {
+            const overlay = callOverlay;
+            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                if (overlay.requestFullscreen) {
+                    overlay.requestFullscreen();
+                } else if (overlay.webkitRequestFullscreen) {
+                    overlay.webkitRequestFullscreen();
+                }
+                fullscreenCallBtn.textContent = '⬜';
+                fullscreenCallBtn.title = 'Salir de pantalla completa';
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                }
+                fullscreenCallBtn.textContent = '⛶';
+                fullscreenCallBtn.title = 'Pantalla completa';
+            }
+        });
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) {
+                fullscreenCallBtn.textContent = '⛶';
+                fullscreenCallBtn.title = 'Pantalla completa';
+            }
+        });
+        document.addEventListener('webkitfullscreenchange', () => {
+            if (!document.webkitFullscreenElement) {
+                fullscreenCallBtn.textContent = '⛶';
+                fullscreenCallBtn.title = 'Pantalla completa';
+            }
+        });
+
         // --- Mutear micrófono ---
         muteMicBtn.addEventListener('click', () => {
             if (!localStream) return;
@@ -5291,19 +5403,37 @@
         });
 
         // --- Altavoz / Speaker toggle ---
+        // AudioContext para controlar audio y evitar que el sensor de proximidad cambie el routing
+        let callAudioContext = null;
+        let callGainNode = null;
+
+        function getCallAudioContext() {
+            if (!callAudioContext || callAudioContext.state === 'closed') {
+                callAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+                callGainNode = callAudioContext.createGain();
+                callGainNode.connect(callAudioContext.destination);
+            }
+            if (callAudioContext.state === 'suspended') {
+                callAudioContext.resume();
+            }
+            return { ctx: callAudioContext, gain: callGainNode };
+        }
+
         function applyAudioRouting() {
-            // En Android, no hay setSinkId confiable.
-            // Usamos volume bajo para simular auricular, y AudioContext para routing.
-            const vol = speakerEnabled ? 1.0 : 0.15;
+            // Volumen: altavoz = 1.0, auricular = muy bajo para que no se escuche por el bafle
+            const vol = speakerEnabled ? 1.0 : 0.05;
+            // Aplicar gain via AudioContext si existe
+            if (callGainNode) {
+                callGainNode.gain.value = vol;
+            }
+            // Fallback: volume en elementos de audio directos
             Object.values(remoteAudioElements).forEach(audioEl => {
                 audioEl.volume = vol;
-                // Intentar setSinkId si disponible (Chrome desktop)
                 if (audioEl.setSinkId && typeof audioEl.setSinkId === 'function') {
                     audioEl.setSinkId(speakerEnabled ? 'default' : 'communications')
-                        .catch(() => {}); // Silenciar error si no soportado
+                        .catch(() => {});
                 }
             });
-            // Aplicar también a videos remotos en videollamada
             callVideoGrid.querySelectorAll('video').forEach(v => { v.volume = vol; });
         }
 
@@ -5320,17 +5450,25 @@
         function createRemoteAudio(peerId, stream) {
             const audioEl = document.createElement('audio');
             audioEl.autoplay = true;
-            audioEl.volume = speakerEnabled ? 1.0 : 0.15;
+            audioEl.volume = speakerEnabled ? 1.0 : 0.05;
             audioEl.srcObject = stream;
             audioEl.id = `remote-audio-${peerId}`;
             document.body.appendChild(audioEl);
             remoteAudioElements[peerId] = audioEl;
+            // Conectar a AudioContext para bypass del sensor de proximidad
+            try {
+                const { ctx, gain } = getCallAudioContext();
+                const source = ctx.createMediaStreamSource(stream);
+                source.connect(gain);
+                audioEl._acSource = source; // guardar referencia para cleanup
+            } catch(e) { console.log('AudioContext routing fallback:', e); }
             return audioEl;
         }
 
         function removeRemoteAudio(peerId) {
             const audioEl = remoteAudioElements[peerId];
             if (audioEl) {
+                if (audioEl._acSource) { try { audioEl._acSource.disconnect(); } catch(e){} }
                 audioEl.pause();
                 audioEl.srcObject = null;
                 audioEl.remove();
@@ -5345,17 +5483,90 @@
         const callSelectorStart = document.getElementById('call-selector-start');
         const minimizeCallBtn = document.getElementById('minimize-call-btn');
 
-        // --- Minimizar / Expandir llamada ---
+        // --- Minimizar / Expandir llamada + Drag ---
         minimizeCallBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             callOverlay.classList.remove('active');
             callOverlay.classList.add('minimized');
         });
+
+        // Drag para mover la llamada minimizada
+        let miniDragging = false;
+        let miniDragStartX = 0, miniDragStartY = 0;
+        let miniStartLeft = 0, miniStartTop = 0;
+        let miniDragMoved = false;
+
+        function miniDragStart(clientX, clientY) {
+            if (!callOverlay.classList.contains('minimized')) return;
+            miniDragging = true;
+            miniDragMoved = false;
+            const rect = callOverlay.getBoundingClientRect();
+            miniDragStartX = clientX;
+            miniDragStartY = clientY;
+            miniStartLeft = rect.left;
+            miniStartTop = rect.top;
+            callOverlay.style.transition = 'none';
+        }
+
+        function miniDragMove(clientX, clientY) {
+            if (!miniDragging) return;
+            const dx = clientX - miniDragStartX;
+            const dy = clientY - miniDragStartY;
+            if (Math.abs(dx) > 5 || Math.abs(dy) > 5) miniDragMoved = true;
+            let newLeft = miniStartLeft + dx;
+            let newTop = miniStartTop + dy;
+            // Limitar dentro de la ventana
+            const w = callOverlay.offsetWidth;
+            const h = callOverlay.offsetHeight;
+            newLeft = Math.max(0, Math.min(window.innerWidth - w, newLeft));
+            newTop = Math.max(0, Math.min(window.innerHeight - h, newTop));
+            callOverlay.style.left = newLeft + 'px';
+            callOverlay.style.top = newTop + 'px';
+            callOverlay.style.right = 'auto';
+            callOverlay.style.bottom = 'auto';
+        }
+
+        function miniDragEnd() {
+            if (!miniDragging) return;
+            miniDragging = false;
+            callOverlay.style.transition = '';
+        }
+
+        // Touch events
+        callOverlay.addEventListener('touchstart', (e) => {
+            if (!callOverlay.classList.contains('minimized')) return;
+            const t = e.touches[0];
+            miniDragStart(t.clientX, t.clientY);
+        }, { passive: true });
+        callOverlay.addEventListener('touchmove', (e) => {
+            if (!miniDragging) return;
+            e.preventDefault();
+            const t = e.touches[0];
+            miniDragMove(t.clientX, t.clientY);
+        }, { passive: false });
+        callOverlay.addEventListener('touchend', () => miniDragEnd());
+
+        // Mouse events
+        callOverlay.addEventListener('mousedown', (e) => {
+            if (!callOverlay.classList.contains('minimized')) return;
+            miniDragStart(e.clientX, e.clientY);
+        });
+        document.addEventListener('mousemove', (e) => {
+            if (miniDragging) miniDragMove(e.clientX, e.clientY);
+        });
+        document.addEventListener('mouseup', () => miniDragEnd());
+
+        // Expandir solo si no se arrastró
         callOverlay.addEventListener('click', (e) => {
-            if (callOverlay.classList.contains('minimized')) {
+            if (callOverlay.classList.contains('minimized') && !miniDragMoved) {
                 e.stopPropagation();
                 callOverlay.classList.remove('minimized');
                 callOverlay.classList.add('active');
+                // Reset position al expandir
+                callOverlay.style.left = '';
+                callOverlay.style.top = '';
+                callOverlay.style.right = '';
+                callOverlay.style.bottom = '';
             }
         });
 
@@ -5422,6 +5633,7 @@
             callActionsIncoming.style.display = 'none';
             localVideo.style.display = withVideo ? 'block' : 'none';
             flipCameraBtn.style.display = withVideo ? 'flex' : 'none';
+            fullscreenCallBtn.style.display = withVideo ? 'flex' : 'none';
             currentFacingMode = 'user';
 
             try {
@@ -5564,6 +5776,7 @@
             callStatusEl.textContent = 'Conectando...';
             localVideo.style.display = currentCallWithVideo ? 'block' : 'none';
             flipCameraBtn.style.display = currentCallWithVideo ? 'flex' : 'none';
+            fullscreenCallBtn.style.display = currentCallWithVideo ? 'flex' : 'none';
             currentFacingMode = 'user';
 
             try {
@@ -5814,6 +6027,12 @@
             }
 
             Object.keys(remoteAudioElements).forEach(peerId => removeRemoteAudio(peerId));
+            // Cerrar AudioContext de llamada
+            if (callAudioContext && callAudioContext.state !== 'closed') {
+                try { callAudioContext.close(); } catch(e) {}
+                callAudioContext = null;
+                callGainNode = null;
+            }
             speakerEnabled = false;
             micMuted = false;
             cameraMuted = false;
@@ -5827,9 +6046,19 @@
             localVideo.srcObject = null;
             localVideo.style.display = 'none';
             flipCameraBtn.style.display = 'none';
+            fullscreenCallBtn.style.display = 'none';
+            // Salir de pantalla completa si está activa
+            if (document.fullscreenElement || document.webkitFullscreenElement) {
+                (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+            }
             callOverlay.classList.remove('active');
             callOverlay.classList.remove('minimized');
             callOverlay.classList.remove('voice-call');
+            // Reset posición de drag
+            callOverlay.style.left = '';
+            callOverlay.style.top = '';
+            callOverlay.style.right = '';
+            callOverlay.style.bottom = '';
             callTimerEl.style.display = 'none';
             currentGroupCallId = null;
             currentGroupCallRef = null;
