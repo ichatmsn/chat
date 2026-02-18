@@ -459,6 +459,21 @@
             color: #ff3b30;
         }
         .channel-tab .tab-name { pointer-events: none; }
+        .channel-tab .tab-badge {
+            display: none;
+            background: #ff3b30;
+            color: #fff;
+            font-size: 0.7em;
+            font-weight: 700;
+            min-width: 18px;
+            height: 18px;
+            border-radius: 9px;
+            text-align: center;
+            line-height: 18px;
+            padding: 0 5px;
+            pointer-events: none;
+        }
+        .channel-tab .tab-badge.has-unread { display: inline-block; }
 
         /* Estilos para el encabezado del chat */
         #chat-header {
@@ -1994,11 +2009,11 @@
          }
 
 
-        /* Lock Overlay */
+        /* Lock Overlay (positioned inside chat-interface, below tabs) */
         #lock-overlay {
             display: none;
-            position: fixed;
-            inset: 0;
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
             background: #fff;
             z-index: 500;
             align-items: center;
@@ -2115,6 +2130,18 @@
                      <button id="install-app-button" style="display:none">📲 Instalar App</button>
                  </div>
             </div>
+            <!-- Lock Overlay (inside chat-interface so tabs remain accessible) -->
+            <div id="lock-overlay">
+                <div class="lock-content">
+                    <div class="lock-icon">🔒</div>
+                    <h2>No disponible</h2>
+                    <p>Esta página se encuentra bloqueada</p>
+                    <div class="lock-buttons">
+                        <button id="lock-help-btn" class="lock-btn primary">Ayuda</button>
+                        <button id="lock-more-btn" class="lock-btn secondary">Más opciones</button>
+                    </div>
+                </div>
+            </div>
              <div id="chat-box">
                 </div>
             <div id="bottom-fixed-area">
@@ -2209,18 +2236,7 @@
         <button class="lightbox-download" id="lightbox-download">💾 Guardar imagen</button>
     </div>
 
-    <!-- Lock Overlay -->
-    <div id="lock-overlay">
-        <div class="lock-content">
-            <div class="lock-icon">🔒</div>
-            <h2>No disponible</h2>
-            <p>Esta página se encuentra bloqueada</p>
-            <div class="lock-buttons">
-                <button id="lock-help-btn" class="lock-btn primary">Ayuda</button>
-                <button id="lock-more-btn" class="lock-btn secondary">Más opciones</button>
-            </div>
-        </div>
-    </div>
+    <!-- Lock Overlay (moved below, inside chat-interface) -->
 
     <!-- Password Modal -->
     <div id="password-modal">
@@ -2571,6 +2587,8 @@
         }
 
         function removeChannelTab(channel) {
+            // Stop any background listener for the channel being closed
+            stopBgListener(channel);
             let tabs = getSavedTabs();
             tabs = tabs.filter(t => t.channel !== channel);
             saveTabs(tabs);
@@ -2591,6 +2609,32 @@
             renderTabs();
         }
 
+        // --- Background listeners for inactive tabs ---
+        const bgListeners = {}; // { channel: { ref, cb, off() } }
+        const tabUnreadCounts = {}; // { channel: number }
+
+        function startBgListener(channel) {
+            if (bgListeners[channel]) return; // already listening
+            const ref = database.ref(`channels/${channel}/messages`);
+            // Only listen for new messages (after this moment)
+            const cb = ref.orderByChild('timestamp').startAt(Date.now()).on('child_added', (snap) => {
+                const msg = snap.val();
+                if (!msg || msg.name === userName) return; // ignore own messages
+                tabUnreadCounts[channel] = (tabUnreadCounts[channel] || 0) + 1;
+                renderTabs();
+                playNotificationSound();
+            });
+            bgListeners[channel] = { ref, cb };
+        }
+
+        function stopBgListener(channel) {
+            if (bgListeners[channel]) {
+                bgListeners[channel].ref.off('child_added', bgListeners[channel].cb);
+                delete bgListeners[channel];
+            }
+            tabUnreadCounts[channel] = 0;
+        }
+
         function renderTabs() {
             const tabs = getSavedTabs();
             channelTabsContainer.innerHTML = '';
@@ -2603,7 +2647,9 @@
                 const tabEl = document.createElement('div');
                 tabEl.classList.add('channel-tab');
                 if (tab.channel === activeChannel) tabEl.classList.add('active');
-                tabEl.innerHTML = `<span class="tab-name">${tab.channel}</span><button class="tab-close" title="Cerrar canal">&times;</button>`;
+                const unread = tabUnreadCounts[tab.channel] || 0;
+                const badgeClass = unread > 0 ? 'tab-badge has-unread' : 'tab-badge';
+                tabEl.innerHTML = `<span class="tab-name">${tab.channel}</span><span class="${badgeClass}">${unread > 99 ? '99+' : unread}</span><button class="tab-close" title="Cerrar canal">&times;</button>`;
                 tabEl.addEventListener('click', (e) => {
                     if (e.target.classList.contains('tab-close')) {
                         e.stopPropagation();
@@ -2651,7 +2697,12 @@
 
         async function switchToChannel(channel, pin) {
             if (channel === activeChannel) return;
+            const prevChannel = activeChannel;
             detachAllListeners();
+            // Start bg listener for the channel we're leaving
+            if (prevChannel) startBgListener(prevChannel);
+            // Stop bg listener for the channel we're entering
+            stopBgListener(channel);
             activeChannel = channel;
             setupChannelRefs(channel);
             localStorage.setItem('chatChannel', channel);
@@ -4008,9 +4059,19 @@
             const cleanChannel = newChannel.trim().toUpperCase().replace(/[.$#\[\]\/]/g, '');
             if (!cleanChannel) return;
             if (cleanChannel === activeChannel) return;
+            const prevChannel = activeChannel;
             detachAllListeners();
+            if (prevChannel) startBgListener(prevChannel);
             const success = await enterChannel(cleanChannel);
-            if (!success) return;
+            if (!success) {
+                // Revert: stop bg listener and restore
+                stopBgListener(prevChannel);
+                activeChannel = prevChannel;
+                setupChannelRefs(prevChannel);
+                initializeChat();
+                return;
+            }
+            stopBgListener(activeChannel);
             localStorage.setItem('chatChannel', activeChannel);
             document.getElementById('chat-title').textContent = activeChannel;
             addChannelTab(activeChannel, '');
@@ -4411,6 +4472,13 @@
                  document.getElementById('chat-title').textContent = activeChannel;
                  addChannelTab(activeChannel, '');
                  initializeChat();
+                 // Start bg listeners for all other saved tabs
+                 const allTabs = getSavedTabs();
+                 allTabs.forEach(t => {
+                     if (t.channel !== activeChannel) {
+                         startBgListener(t.channel);
+                     }
+                 });
              }
              // Ajustar el padding inferior del chatBox al cargar
              adjustChatBoxPadding();
@@ -5223,25 +5291,36 @@
         });
 
         // --- Altavoz / Speaker toggle ---
+        function applyAudioRouting() {
+            // En Android, no hay setSinkId confiable.
+            // Usamos volume bajo para simular auricular, y AudioContext para routing.
+            const vol = speakerEnabled ? 1.0 : 0.15;
+            Object.values(remoteAudioElements).forEach(audioEl => {
+                audioEl.volume = vol;
+                // Intentar setSinkId si disponible (Chrome desktop)
+                if (audioEl.setSinkId && typeof audioEl.setSinkId === 'function') {
+                    audioEl.setSinkId(speakerEnabled ? 'default' : 'communications')
+                        .catch(() => {}); // Silenciar error si no soportado
+                }
+            });
+            // Aplicar también a videos remotos en videollamada
+            callVideoGrid.querySelectorAll('video').forEach(v => { v.volume = vol; });
+        }
+
         speakerBtn.addEventListener('click', () => {
             speakerEnabled = !speakerEnabled;
             speakerBtn.classList.toggle('speaker-on', speakerEnabled);
             speakerBtn.classList.toggle('speaker-off', !speakerEnabled);
             speakerBtn.title = speakerEnabled ? 'Altavoz activado' : 'Altavoz desactivado';
-            // Intentar cambiar el audio output si está disponible
-            Object.values(remoteAudioElements).forEach(audioEl => {
-                if (audioEl.setSinkId) {
-                    // Nota: setSinkId requiere permisos y no siempre está disponible
-                    console.log('Intentando cambiar audio output...');
-                }
-            });
-            showToast(speakerEnabled ? '🔊 Altavoz activado' : '🔈 Altavoz desactivado (auricular)');
+            applyAudioRouting();
+            showToast(speakerEnabled ? '🔊 Altavoz activado' : '🔈 Altavoz (auricular)');
         });
 
         // Función para crear audio element en llamadas de voz (para mejor control de routing)
         function createRemoteAudio(peerId, stream) {
             const audioEl = document.createElement('audio');
             audioEl.autoplay = true;
+            audioEl.volume = speakerEnabled ? 1.0 : 0.15;
             audioEl.srcObject = stream;
             audioEl.id = `remote-audio-${peerId}`;
             document.body.appendChild(audioEl);
@@ -5377,6 +5456,8 @@
                     participants: { [userName]: true }
                 });
 
+                setupParticipantsListener(newCallRef.key);
+
                 // Limpiar al desconectar
                 newCallRef.child(`participants/${userName}`).onDisconnect().remove();
 
@@ -5404,6 +5485,8 @@
         }
 
         // --- Escuchar llamadas entrantes ---
+        let participantsListener = null;
+
         function setupGroupCallListener() {
             if (!activeChannel || !userName) return;
             const groupCallsRef = database.ref(`channels/${activeChannel}/groupCalls`);
@@ -5421,6 +5504,25 @@
                     endGroupCall(false);
                 }
             });
+        }
+
+        // Escuchar cambios en participants para detectar cuando el otro cuelga
+        function setupParticipantsListener(callId) {
+            if (participantsListener) {
+                participantsListener.ref.off('value', participantsListener.cb);
+            }
+            const partRef = database.ref(`channels/${activeChannel}/groupCalls/${callId}/participants`);
+            const cb = partRef.on('value', (snap) => {
+                if (!currentGroupCallId || currentGroupCallId !== callId) return;
+                const parts = snap.val() || {};
+                const otherParticipants = Object.keys(parts).filter(n => n !== userName);
+                if (otherParticipants.length === 0 && callTimerInterval) {
+                    // Todos los demás se fueron - terminar la llamada
+                    showToast('📞 La otra persona colgó');
+                    endGroupCall(true);
+                }
+            });
+            participantsListener = { ref: partRef, cb };
         }
 
         // --- Recibir llamada grupal ---
@@ -5455,6 +5557,7 @@
             currentGroupCallId = callId;
             currentGroupCallRef = callRef;
             currentCallWithVideo = call.type === 'video';
+            setupParticipantsListener(callId);
 
             callActionsIncoming.style.display = 'none';
             callActionsOutgoing.style.display = 'flex';
@@ -5705,6 +5808,10 @@
             callSignalListeners = [];
             processedIceCandidates.clear();
             Object.keys(remoteDescSet).forEach(k => delete remoteDescSet[k]);
+            if (participantsListener) {
+                participantsListener.ref.off('value', participantsListener.cb);
+                participantsListener = null;
+            }
 
             Object.keys(remoteAudioElements).forEach(peerId => removeRemoteAudio(peerId));
             speakerEnabled = false;
