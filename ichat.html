@@ -290,6 +290,15 @@
             box-shadow: 0 8px 40px rgba(0,0,0,0.5);
             user-select: none;
             -webkit-user-select: none;
+            transition: transform 0.2s ease;
+            touch-action: manipulation;
+        }
+        #image-lightbox .zoom-hint {
+            position: absolute;
+            bottom: 80px;
+            color: rgba(255,255,255,0.6);
+            font-size: 0.8em;
+            pointer-events: none;
         }
         #image-lightbox .lightbox-close {
             position: absolute;
@@ -391,6 +400,65 @@
             color: rgba(0,0,0,0.55);
             line-height: 1.35;
         }
+
+        /* Channel Tabs */
+        #channel-tabs {
+            display: none;
+            flex-shrink: 0;
+            overflow-x: auto;
+            white-space: nowrap;
+            background: #f0f0f5;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 6px 8px 0 8px;
+            gap: 4px;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+        #channel-tabs::-webkit-scrollbar { display: none; }
+        #channel-tabs.visible { display: flex; }
+        .channel-tab {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 10px 10px 0 0;
+            background: #e0e0e5;
+            color: #555;
+            font-size: 0.85em;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+            position: relative;
+        }
+        .channel-tab:hover { background: #d0d0d5; }
+        .channel-tab.active {
+            background: #fff;
+            color: #007aff;
+            box-shadow: 0 -2px 6px rgba(0,0,0,0.06);
+        }
+        .channel-tab .tab-close {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: transparent;
+            border: none;
+            color: #999;
+            font-size: 0.85em;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+            transition: all 0.15s;
+        }
+        .channel-tab .tab-close:hover {
+            background: rgba(255,59,48,0.15);
+            color: #ff3b30;
+        }
+        .channel-tab .tab-name { pointer-events: none; }
 
         /* Estilos para el encabezado del chat */
         #chat-header {
@@ -1762,8 +1830,20 @@
          .call-actions .toggle-btn.speaker-off {
              background: rgba(255,255,255,0.2);
          }
+         .call-actions .toggle-btn.muted {
+             background: #ff3b30;
+         }
          #speaker-btn {
              display: none;
+         }
+         #mute-mic-btn {
+             display: flex;
+         }
+         #mute-camera-btn {
+             display: none;
+         }
+         #call-overlay:not(.voice-call) #mute-camera-btn {
+             display: flex;
          }
          #call-overlay.voice-call #speaker-btn {
              display: flex;
@@ -2013,6 +2093,7 @@
         </div>
 
         <div id="chat-interface">
+            <div id="channel-tabs"></div>
             <div id="chat-header">
                  <div>
                      <h2 id="chat-title">iChat</h2>
@@ -2108,6 +2189,8 @@
         <div class="call-video-grid" id="call-video-grid"></div>
         <video id="local-video" class="local-video" autoplay playsinline muted></video>
         <div class="call-actions" id="call-actions-outgoing">
+            <button class="toggle-btn" id="mute-mic-btn" title="Silenciar micrófono">🎙️</button>
+            <button class="toggle-btn" id="mute-camera-btn" title="Apagar cámara">📷</button>
             <button class="toggle-btn" id="flip-camera-btn" style="display:none" title="Voltear cámara">🔄</button>
             <button class="toggle-btn speaker-off" id="speaker-btn" title="Altavoz">🔊</button>
             <button class="end-call" id="end-call-btn">📞</button>
@@ -2122,6 +2205,7 @@
     <div id="image-lightbox">
         <button class="lightbox-close" id="lightbox-close">&times;</button>
         <img id="lightbox-img" src="" alt="Imagen">
+        <div class="zoom-hint">Doble toque para zoom · Pellizca para ajustar</div>
         <button class="lightbox-download" id="lightbox-download">💾 Guardar imagen</button>
     </div>
 
@@ -2316,29 +2400,23 @@
             sessionId = 'sid_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
             localStorage.setItem('ichat_session_id', sessionId);
         }
-        // Verificar si un nombre ya fue usado por OTRA persona en un canal
+        // Verificar si un nombre está activamente en uso en un canal
         async function isNameTakenInChannel(name, channelId) {
-            const msgRef = database.ref(`channels/${channelId}/messages`);
-            const snap = await msgRef.orderByChild('name').equalTo(name).once('value');
-            if (!snap.exists()) return false; // Nombre libre
-            // Revisar si algún mensaje con ese nombre tiene un sid diferente al nuestro
-            let takenByOther = false;
-            snap.forEach(child => {
-                const msg = child.val();
-                if (msg.sid && msg.sid !== sessionId) {
-                    takenByOther = true;
+            // Primero: verificar si el nombre está ONLINE en presence
+            const presRef = database.ref(`channels/${channelId}/presence/${name}`);
+            const presSnap = await presRef.once('value');
+            if (presSnap.exists() && presSnap.val() === true) {
+                // El nombre está activamente conectado por alguien
+                // Verificar si somos nosotros (misma sesión/localStorage)
+                const savedName = localStorage.getItem('chatName');
+                const savedChannel = localStorage.getItem('chatChannel');
+                if (savedName === name && savedChannel === channelId) {
+                    return false; // Somos nosotros reconectándonos
                 }
-                // Mensajes antiguos sin sid se consideran del mismo usuario si el nombre coincide con localStorage
-                if (!msg.sid) {
-                    // Si no tiene sid, verificar si el localStorage tiene ese nombre guardado para ese canal
-                    const savedName = localStorage.getItem('chatName');
-                    const savedChannel = localStorage.getItem('chatChannel');
-                    if (!(savedName === name && savedChannel === channelId)) {
-                        takenByOther = true;
-                    }
-                }
-            });
-            return takenByOther;
+                return true; // Alguien más lo está usando activamente
+            }
+            // Si no está online, el nombre está disponible
+            return false;
         }
         let typingTimeout; // Para manejar el indicador de escribiendo
         let initialLoadComplete = false; // Bandera para saber si la carga inicial de mensajes ha terminado
@@ -2416,7 +2494,7 @@
             // Verificar si el nombre ya fue usado en este canal
             const nameTaken = await isNameTakenInChannel(enteredName, activeChannel);
             if (nameTaken) {
-                alert(`El nombre "${enteredName}" ya fue usado en este canal. Usa otro nombre o pide que limpien el chat para liberarlo.`);
+                alert(`El nombre "${enteredName}" está siendo usado por alguien conectado en este canal. Usa otro nombre o espera a que esa persona se desconecte.`);
                 userName = '';
                 activeChannel = '';
                 return;
@@ -2428,6 +2506,7 @@
             localStorage.setItem('chatName', userName);
             localStorage.setItem('chatChannel', activeChannel);
             document.getElementById('chat-title').textContent = activeChannel;
+            addChannelTab(activeChannel, '');
             initializeChat();
         });
 
@@ -2470,6 +2549,116 @@
             typingRef = database.ref(`channels/${channelId}/typing`);
             presenceRef = database.ref(`channels/${channelId}/presence`);
             chatLockRef = database.ref(`channels/${channelId}/chat_lock`);
+        }
+
+        // --- Multi-channel Tabs ---
+        const channelTabsContainer = document.getElementById('channel-tabs');
+
+        function getSavedTabs() {
+            try { return JSON.parse(localStorage.getItem('ichat_tabs')) || []; } catch(e) { return []; }
+        }
+        function saveTabs(tabs) {
+            localStorage.setItem('ichat_tabs', JSON.stringify(tabs));
+        }
+
+        function addChannelTab(channel, pin) {
+            let tabs = getSavedTabs();
+            if (!tabs.find(t => t.channel === channel)) {
+                tabs.push({ channel, pin });
+                saveTabs(tabs);
+            }
+            renderTabs();
+        }
+
+        function removeChannelTab(channel) {
+            let tabs = getSavedTabs();
+            tabs = tabs.filter(t => t.channel !== channel);
+            saveTabs(tabs);
+            // If we closed the active tab, switch to another or go to login
+            if (channel === activeChannel) {
+                if (tabs.length > 0) {
+                    switchToChannel(tabs[tabs.length - 1].channel, tabs[tabs.length - 1].pin);
+                } else {
+                    // No more tabs - go back to login screen
+                    detachAllListeners();
+                    activeChannel = '';
+                    localStorage.removeItem('chatChannel');
+                    chatInterface.style.display = 'none';
+                    namePrompt.style.display = 'flex';
+                    channelTabsContainer.classList.remove('visible');
+                }
+            }
+            renderTabs();
+        }
+
+        function renderTabs() {
+            const tabs = getSavedTabs();
+            channelTabsContainer.innerHTML = '';
+            if (tabs.length <= 1) {
+                channelTabsContainer.classList.remove('visible');
+                return;
+            }
+            channelTabsContainer.classList.add('visible');
+            tabs.forEach(tab => {
+                const tabEl = document.createElement('div');
+                tabEl.classList.add('channel-tab');
+                if (tab.channel === activeChannel) tabEl.classList.add('active');
+                tabEl.innerHTML = `<span class="tab-name">${tab.channel}</span><button class="tab-close" title="Cerrar canal">&times;</button>`;
+                tabEl.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('tab-close')) {
+                        e.stopPropagation();
+                        removeChannelTab(tab.channel);
+                        return;
+                    }
+                    if (tab.channel !== activeChannel) {
+                        switchToChannel(tab.channel, tab.pin);
+                    }
+                });
+                channelTabsContainer.appendChild(tabEl);
+            });
+        }
+
+        function detachAllListeners() {
+            if (messagesRef) {
+                messagesRef.off();
+            }
+            if (typingRef) {
+                typingRef.off();
+            }
+            if (presenceRef) {
+                if (userName) presenceRef.child(userName).remove();
+                presenceRef.off();
+            }
+            if (chatLockRef) {
+                chatLockRef.off();
+            }
+            if (activeChannel) {
+                const pendingRef = database.ref(`channels/${activeChannel}/pending`);
+                pendingRef.off();
+                const kickedRef = database.ref(`channels/${activeChannel}/kicked/${userName}`);
+                kickedRef.off();
+            }
+            initialLoadComplete = false;
+            chatBox.innerHTML = '';
+            typingIndicator.textContent = '';
+            onlineUsersDiv.textContent = '';
+            replyingToMessage = null;
+            replyPreview.style.display = 'none';
+            editingMessageId = null;
+            editingMessageText = null;
+            editPreview.style.display = 'none';
+        }
+
+        async function switchToChannel(channel, pin) {
+            if (channel === activeChannel) return;
+            detachAllListeners();
+            activeChannel = channel;
+            setupChannelRefs(channel);
+            localStorage.setItem('chatChannel', channel);
+            document.getElementById('chat-title').textContent = channel;
+            initialLoadComplete = false;
+            initializeChat();
+            renderTabs();
         }
 
 
@@ -2628,7 +2817,12 @@
         }
 
         // Función para enviar un mensaje (texto, respuesta o edición)
+        let _lastSendTime = 0;
         function sendMessage() {
+            // Debounce: prevent double-send from click+touchstart on mobile
+            const now = Date.now();
+            if (now - _lastSendTime < 400) return;
+            _lastSendTime = now;
             console.log("sendMessage function called.");
             const messageText = messageInput.value.trim();
             console.log("Message text:", messageText);
@@ -2834,6 +3028,8 @@
                  // Solo mostrar el mensaje si no es parte de la carga inicial
                  // La bandera initialLoadComplete ayuda a diferenciar
                  if (initialLoadComplete) {
+                    // Guard: skip if already displayed (prevents duplicates from race conditions)
+                    if (chatBox.querySelector(`[data-message-id="${messageId}"]`)) return;
                     displayMessage(newMessage, messageId); // Mostrar el nuevo mensaje
                     // Reproducir sonido si el mensaje no es del usuario actual
                      if (newMessage.name !== userName) {
@@ -3006,11 +3202,11 @@
             // Crear elementos para el nombre y contenido
             const nameSpan = document.createElement('span');
             nameSpan.classList.add('name');
-            /* Solo mostrar el nombre si no es el mensaje del usuario actual (opcional, estilo WhatsApp) */
+            /* Mostrar el nombre del remitente en todos los mensajes */
             if (msg.name !== userName) {
                nameSpan.textContent = msg.name + ': ';
             } else {
-               nameSpan.textContent = ''; // No mostrar el nombre en mensajes propios
+               nameSpan.textContent = 'Tú: ';
             }
 
             // Crear el contenedor para el texto, hora y checkmarks
@@ -3040,10 +3236,8 @@
             timestampSpan.textContent = formatTimestamp(msg.timestamp); // Formatear y mostrar hora
 
 
-            // Añadir nombre al elemento del mensaje si no es el usuario actual
-            if (msg.name !== userName) {
-                 messageElement.appendChild(nameSpan);
-            }
+            // Añadir nombre al elemento del mensaje
+            messageElement.appendChild(nameSpan);
 
             // --- Mostrar contenido de la respuesta si existe ---
             if (msg.replyTo) {
@@ -3806,11 +4000,21 @@
             showToast('🔑 PIN actualizado correctamente');
         });
 
-        // --- Lógica para Cambiar Canal ---
-        document.getElementById('change-channel-button').addEventListener('click', () => {
+        // --- Lógica para Cambiar Canal (abre nuevo canal como tab) ---
+        document.getElementById('change-channel-button').addEventListener('click', async () => {
             settingsDropdown.style.display = 'none';
-            localStorage.removeItem('chatChannel');
-            location.reload();
+            const newChannel = await showPromptModal('Ingresa el nombre del nuevo canal', 'Canal');
+            if (!newChannel) return;
+            const cleanChannel = newChannel.trim().toUpperCase().replace(/[.$#\[\]\/]/g, '');
+            if (!cleanChannel) return;
+            if (cleanChannel === activeChannel) return;
+            detachAllListeners();
+            const success = await enterChannel(cleanChannel);
+            if (!success) return;
+            localStorage.setItem('chatChannel', activeChannel);
+            document.getElementById('chat-title').textContent = activeChannel;
+            addChannelTab(activeChannel, '');
+            initializeChat();
         });
 
         // --- Lógica de Más opciones (Owner/Admin) ---
@@ -4205,6 +4409,7 @@
                  namePrompt.style.display = 'none';
                  chatInterface.style.display = 'flex';
                  document.getElementById('chat-title').textContent = activeChannel;
+                 addChannelTab(activeChannel, '');
                  initializeChat();
              }
              // Ajustar el padding inferior del chatBox al cargar
@@ -4300,14 +4505,105 @@
 
         imageButton.addEventListener('click', () => imageInput.click());
 
-        // --- Lightbox para imágenes ---
+        // --- Lightbox para imágenes con zoom ---
         (function() {
             const lb = document.getElementById('image-lightbox');
             const lbImg = document.getElementById('lightbox-img');
             const lbClose = document.getElementById('lightbox-close');
             const lbDownload = document.getElementById('lightbox-download');
-            lbClose.addEventListener('click', () => lb.classList.remove('active'));
-            lb.addEventListener('click', (e) => { if (e.target === lb) lb.classList.remove('active'); });
+
+            let zoomScale = 1;
+            let zoomPosX = 0, zoomPosY = 0;
+            let isDragging = false;
+            let dragStartX = 0, dragStartY = 0;
+            let initialPinchDist = 0;
+            let initialPinchScale = 1;
+
+            function resetZoom() {
+                zoomScale = 1;
+                zoomPosX = 0;
+                zoomPosY = 0;
+                lbImg.style.transform = 'scale(1) translate(0px, 0px)';
+            }
+
+            function applyTransform() {
+                lbImg.style.transform = `scale(${zoomScale}) translate(${zoomPosX}px, ${zoomPosY}px)`;
+            }
+
+            // Double-tap to zoom
+            let lastTap = 0;
+            lbImg.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const now = Date.now();
+                if (now - lastTap < 300) {
+                    // Double tap
+                    if (zoomScale > 1) {
+                        resetZoom();
+                    } else {
+                        zoomScale = 2.5;
+                        zoomPosX = 0;
+                        zoomPosY = 0;
+                        applyTransform();
+                    }
+                    lastTap = 0;
+                } else {
+                    lastTap = now;
+                }
+            });
+
+            // Pinch to zoom (touch)
+            lbImg.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 2) {
+                    e.preventDefault();
+                    const dx = e.touches[0].clientX - e.touches[1].clientX;
+                    const dy = e.touches[0].clientY - e.touches[1].clientY;
+                    initialPinchDist = Math.sqrt(dx * dx + dy * dy);
+                    initialPinchScale = zoomScale;
+                } else if (e.touches.length === 1 && zoomScale > 1) {
+                    isDragging = true;
+                    dragStartX = e.touches[0].clientX - zoomPosX * zoomScale;
+                    dragStartY = e.touches[0].clientY - zoomPosY * zoomScale;
+                }
+            }, { passive: false });
+
+            lbImg.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 2) {
+                    e.preventDefault();
+                    const dx = e.touches[0].clientX - e.touches[1].clientX;
+                    const dy = e.touches[0].clientY - e.touches[1].clientY;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    zoomScale = Math.max(1, Math.min(5, initialPinchScale * (dist / initialPinchDist)));
+                    if (zoomScale <= 1) { zoomPosX = 0; zoomPosY = 0; }
+                    applyTransform();
+                } else if (e.touches.length === 1 && isDragging && zoomScale > 1) {
+                    e.preventDefault();
+                    zoomPosX = (e.touches[0].clientX - dragStartX) / zoomScale;
+                    zoomPosY = (e.touches[0].clientY - dragStartY) / zoomScale;
+                    applyTransform();
+                }
+            }, { passive: false });
+
+            lbImg.addEventListener('touchend', () => {
+                isDragging = false;
+                if (zoomScale <= 1.05) resetZoom();
+            });
+
+            // Mouse wheel zoom (desktop)
+            lbImg.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const delta = e.deltaY > 0 ? -0.3 : 0.3;
+                zoomScale = Math.max(1, Math.min(5, zoomScale + delta));
+                if (zoomScale <= 1) { zoomPosX = 0; zoomPosY = 0; }
+                applyTransform();
+            }, { passive: false });
+
+            // Close lightbox
+            lbClose.addEventListener('click', () => { resetZoom(); lb.classList.remove('active'); });
+            lb.addEventListener('click', (e) => {
+                if (e.target === lb) { resetZoom(); lb.classList.remove('active'); }
+            });
+
             lbDownload.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const a = document.createElement('a');
@@ -4892,8 +5188,39 @@
         const callActionsIncoming = document.getElementById('call-actions-incoming');
         const flipCameraBtn = document.getElementById('flip-camera-btn');
         const speakerBtn = document.getElementById('speaker-btn');
+        const muteMicBtn = document.getElementById('mute-mic-btn');
+        const muteCameraBtn = document.getElementById('mute-camera-btn');
         let speakerEnabled = false;
+        let micMuted = false;
+        let cameraMuted = false;
         let remoteAudioElements = {};
+
+        // --- Mutear micrófono ---
+        muteMicBtn.addEventListener('click', () => {
+            if (!localStream) return;
+            micMuted = !micMuted;
+            localStream.getAudioTracks().forEach(t => t.enabled = !micMuted);
+            muteMicBtn.classList.toggle('muted', micMuted);
+            muteMicBtn.textContent = micMuted ? '🚫' : '🎙️';
+            muteMicBtn.title = micMuted ? 'Activar micrófono' : 'Silenciar micrófono';
+            showToast(micMuted ? '🎙️ Micrófono silenciado' : '🎙️ Micrófono activado');
+        });
+
+        // --- Mutear cámara ---
+        muteCameraBtn.addEventListener('click', () => {
+            if (!localStream) return;
+            cameraMuted = !cameraMuted;
+            localStream.getVideoTracks().forEach(t => t.enabled = !cameraMuted);
+            muteCameraBtn.classList.toggle('muted', cameraMuted);
+            muteCameraBtn.textContent = cameraMuted ? '🚫' : '📷';
+            muteCameraBtn.title = cameraMuted ? 'Encender cámara' : 'Apagar cámara';
+            if (cameraMuted) {
+                localVideo.style.opacity = '0.3';
+            } else {
+                localVideo.style.opacity = '1';
+            }
+            showToast(cameraMuted ? '📷 Cámara apagada' : '📷 Cámara encendida');
+        });
 
         // --- Altavoz / Speaker toggle ---
         speakerBtn.addEventListener('click', () => {
@@ -5381,6 +5708,13 @@
 
             Object.keys(remoteAudioElements).forEach(peerId => removeRemoteAudio(peerId));
             speakerEnabled = false;
+            micMuted = false;
+            cameraMuted = false;
+            muteMicBtn.classList.remove('muted');
+            muteMicBtn.textContent = '🎙️';
+            muteCameraBtn.classList.remove('muted');
+            muteCameraBtn.textContent = '📷';
+            localVideo.style.opacity = '1';
 
             callVideoGrid.innerHTML = '';
             localVideo.srcObject = null;
