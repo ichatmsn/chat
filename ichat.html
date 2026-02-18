@@ -1344,25 +1344,22 @@
              font-size: 0.85em;
              margin: 4px 0;
          }
-         /* Banner de subida de video */
+         /* Banner de subida de video - dentro del chat, no tapa tabs */
          .upload-banner {
-             position: fixed;
+             position: sticky;
              top: 0;
-             left: 50%;
-             transform: translateX(-50%);
-             max-width: 700px;
-             width: 100%;
              background: linear-gradient(135deg, #007aff 0%, #5856d6 100%);
              color: white;
              padding: 10px 16px;
              display: flex;
              align-items: center;
              gap: 10px;
-             z-index: 9998;
+             z-index: 50;
              font-size: 0.88em;
              font-weight: 500;
              box-shadow: 0 4px 16px rgba(0,0,0,0.2);
              animation: slideDown 0.3s ease;
+             border-radius: 0 0 10px 10px;
          }
          .upload-banner .upload-spinner {
              width: 18px; height: 18px;
@@ -1372,8 +1369,8 @@
              animation: spin 0.8s linear infinite;
          }
          @keyframes slideDown {
-             from { transform: translateX(-50%) translateY(-100%); }
-             to { transform: translateX(-50%) translateY(0); }
+             from { transform: translateY(-100%); }
+             to { transform: translateY(0); }
          }
 
          /* Grabación de audio: botón cancelar */
@@ -1725,8 +1722,25 @@
          #call-overlay.minimized .call-status,
          #call-overlay.minimized .call-name,
          #call-overlay.minimized .call-actions,
-         #call-overlay.minimized .call-video-grid,
+         #call-overlay.minimized .local-video,
          #call-overlay.minimized #minimize-call-btn { display: none !important; }
+         #call-overlay.minimized .call-video-grid {
+             display: flex !important;
+             position: absolute;
+             top: 0; left: 0; right: 0; bottom: 0;
+             border-radius: 16px;
+             overflow: hidden;
+         }
+         #call-overlay.minimized .call-video-grid video {
+             width: 100%; height: 100%;
+             object-fit: cover;
+             border-radius: 16px;
+         }
+         #call-overlay.minimized .call-video-grid .video-label { display: none; }
+         #call-overlay.minimized .call-video-grid .call-video-cell {
+             position: absolute;
+             top: 0; left: 0; right: 0; bottom: 0;
+         }
          #call-overlay.minimized .call-timer {
              position: absolute;
              bottom: 6px; left: 0; right: 0;
@@ -1735,13 +1749,6 @@
              margin: 0;
              z-index: 3;
              text-shadow: 0 1px 3px rgba(0,0,0,0.8);
-         }
-         #call-overlay.minimized .local-video {
-             position: relative;
-             top: 0; right: 0;
-             width: 100%; height: 100%;
-             border-radius: 16px;
-             object-fit: cover;
          }
          #call-overlay.minimized .mini-expand-hint {
              display: flex;
@@ -2107,8 +2114,8 @@
             </div>
         </div>
 
+        <div id="channel-tabs"></div>
         <div id="chat-interface">
-            <div id="channel-tabs"></div>
             <div id="chat-header">
                  <div>
                      <h2 id="chat-title">iChat</h2>
@@ -5129,14 +5136,14 @@
             });
         }
 
-        // Banner persistente para subida de video
+        // Banner persistente para subida de video (dentro del chat-box, no tapa tabs)
         function showUploadBanner(text) {
             removeUploadBanner();
             const banner = document.createElement('div');
             banner.classList.add('upload-banner');
             banner.id = 'upload-banner';
             banner.innerHTML = `<div class="upload-spinner"></div><span>${text}</span>`;
-            document.body.appendChild(banner);
+            chatBox.prepend(banner);
         }
         function updateUploadBanner(text) {
             const banner = document.getElementById('upload-banner');
@@ -5420,21 +5427,20 @@
         }
 
         function applyAudioRouting() {
-            // Volumen: altavoz = 1.0, auricular = muy bajo para que no se escuche por el bafle
+            // Todo el audio pasa por AudioContext → GainNode
+            // Los <audio>/<video> elements se mantienen SILENCIADOS para evitar
+            // que el sensor de proximidad los detecte como "llamada telefónica"
             const vol = speakerEnabled ? 1.0 : 0.05;
-            // Aplicar gain via AudioContext si existe
             if (callGainNode) {
                 callGainNode.gain.value = vol;
             }
-            // Fallback: volume en elementos de audio directos
+            // Mantener <audio> elements silenciados siempre (AudioContext maneja el sonido)
             Object.values(remoteAudioElements).forEach(audioEl => {
-                audioEl.volume = vol;
-                if (audioEl.setSinkId && typeof audioEl.setSinkId === 'function') {
-                    audioEl.setSinkId(speakerEnabled ? 'default' : 'communications')
-                        .catch(() => {});
-                }
+                audioEl.volume = 0;
+                audioEl.muted = true;
             });
-            callVideoGrid.querySelectorAll('video').forEach(v => { v.volume = vol; });
+            // Videos remotos también silenciados (su audio va por AudioContext)
+            callVideoGrid.querySelectorAll('video').forEach(v => { v.volume = 0; v.muted = true; });
         }
 
         speakerBtn.addEventListener('click', () => {
@@ -5450,17 +5456,18 @@
         function createRemoteAudio(peerId, stream) {
             const audioEl = document.createElement('audio');
             audioEl.autoplay = true;
-            audioEl.volume = speakerEnabled ? 1.0 : 0.05;
+            audioEl.volume = 0;      // Silenciado - el audio real va por AudioContext
+            audioEl.muted = true;    // Doble silencio para evitar sensor de proximidad
             audioEl.srcObject = stream;
             audioEl.id = `remote-audio-${peerId}`;
             document.body.appendChild(audioEl);
             remoteAudioElements[peerId] = audioEl;
-            // Conectar a AudioContext para bypass del sensor de proximidad
+            // Conectar a AudioContext - este es el canal de audio real
             try {
                 const { ctx, gain } = getCallAudioContext();
                 const source = ctx.createMediaStreamSource(stream);
                 source.connect(gain);
-                audioEl._acSource = source; // guardar referencia para cleanup
+                audioEl._acSource = source;
             } catch(e) { console.log('AudioContext routing fallback:', e); }
             return audioEl;
         }
@@ -5946,7 +5953,16 @@
                 const video = document.createElement('video');
                 video.autoplay = true;
                 video.playsInline = true;
+                video.volume = 0;    // Silenciado - audio va por AudioContext
+                video.muted = true;
                 video.srcObject = stream;
+                // Conectar audio del stream a AudioContext
+                try {
+                    const { ctx, gain } = getCallAudioContext();
+                    const src = ctx.createMediaStreamSource(stream);
+                    src.connect(gain);
+                    video._acSource = src;
+                } catch(e) { console.log('Video AudioContext fallback:', e); }
                 const label = document.createElement('div');
                 label.classList.add('video-label');
                 label.textContent = peerId;
@@ -5965,7 +5981,11 @@
                 return;
             }
             const cell = document.getElementById(`video-cell-${peerId}`);
-            if (cell) cell.remove();
+            if (cell) {
+                const vid = cell.querySelector('video');
+                if (vid && vid._acSource) { try { vid._acSource.disconnect(); } catch(e){} }
+                cell.remove();
+            }
             updateVideoGridLayout();
         }
 
