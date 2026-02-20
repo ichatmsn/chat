@@ -1880,6 +1880,35 @@
              display: none !important;
          }
 
+         /* Proximity Shield - pantalla negra para evitar toques con la cara */
+         #call-proximity-shield {
+             display: none;
+             position: absolute;
+             inset: 0;
+             background: #000;
+             z-index: 100;
+             align-items: center;
+             justify-content: center;
+             cursor: pointer;
+             -webkit-tap-highlight-color: transparent;
+         }
+         #call-proximity-shield.active {
+             display: flex;
+         }
+         .proximity-hint {
+             color: rgba(255,255,255,0.25);
+             font-size: 0.85em;
+             text-align: center;
+             pointer-events: none;
+             animation: proximityPulse 3s ease-in-out infinite;
+         }
+         @keyframes proximityPulse {
+             0%, 100% { opacity: 0.3; }
+             50% { opacity: 0.8; }
+         }
+         /* No mostrar shield cuando está minimizado */
+         #call-overlay.minimized #call-proximity-shield { display: none !important; }
+
          /* Selector de participantes para llamada */
          #call-selector-modal {
              display: none;
@@ -2224,6 +2253,10 @@
     <div id="call-overlay">
         <button id="minimize-call-btn" title="Minimizar">⬇</button>
         <div class="mini-expand-hint">⬆</div>
+        <!-- Proximity Shield: pantalla negra para llamadas de voz, evita toques accidentales -->
+        <div id="call-proximity-shield">
+            <div class="proximity-hint">Toca para ver controles</div>
+        </div>
         <div class="call-status" id="call-status">Llamando...</div>
         <div class="call-name" id="call-peer-name"></div>
         <div class="call-timer" id="call-timer" style="display:none">00:00</div>
@@ -5416,22 +5449,50 @@
         });
 
         // --- Altavoz / Speaker toggle ---
-        // IMPORTANTE: En móviles (Android/iOS), el sensor de proximidad es controlado
-        // por el sistema operativo cuando hay una PeerConnection WebRTC activa.
-        // NO se puede desactivar desde JavaScript en un navegador web.
-        // El audio se enruta al auricular automáticamente al acercar el teléfono a la oreja
-        // y vuelve al altavoz al alejarlo. Esto es comportamiento NORMAL de llamada.
-        // El toggle de altavoz solo controla el volumen como referencia adicional.
+        // setSinkId: 'default' = altavoz principal, 'communications' = auricular
+        // En móviles no todos los navegadores lo soportan, pero se intenta como best-effort.
         function applyAudioRouting() {
-            const vol = speakerEnabled ? 1.0 : 0.15;
-            Object.values(remoteAudioElements).forEach(audioEl => {
-                audioEl.volume = vol;
-                audioEl.muted = false;
-            });
-            callVideoGrid.querySelectorAll('video:not(#local-video)').forEach(v => {
-                v.volume = vol;
-                v.muted = false;
-            });
+            const sinkId = speakerEnabled ? 'default' : 'communications';
+            const vol = speakerEnabled ? 1.0 : 1.0; // Volumen siempre 1.0, el sink controla el destino
+
+            function routeElement(el) {
+                el.volume = vol;
+                el.muted = false;
+                if (el.setSinkId && typeof el.setSinkId === 'function') {
+                    el.setSinkId(sinkId).catch(() => {});
+                }
+                // Recuperar audio si se pausó por cambio de routing del OS
+                if (el.paused && el.srcObject) {
+                    el.play().catch(() => {});
+                }
+            }
+
+            Object.values(remoteAudioElements).forEach(routeElement);
+            callVideoGrid.querySelectorAll('video:not(#local-video)').forEach(routeElement);
+        }
+
+        // Monitorear y recuperar audio que se pausa por interferencia del OS
+        let audioRecoveryInterval = null;
+        function startAudioRecovery() {
+            if (audioRecoveryInterval) return;
+            audioRecoveryInterval = setInterval(() => {
+                Object.values(remoteAudioElements).forEach(el => {
+                    if (el.paused && el.srcObject) {
+                        el.play().catch(() => {});
+                    }
+                });
+                callVideoGrid.querySelectorAll('video:not(#local-video)').forEach(v => {
+                    if (v.paused && v.srcObject) {
+                        v.play().catch(() => {});
+                    }
+                });
+            }, 1500);
+        }
+        function stopAudioRecovery() {
+            if (audioRecoveryInterval) {
+                clearInterval(audioRecoveryInterval);
+                audioRecoveryInterval = null;
+            }
         }
 
         speakerBtn.addEventListener('click', () => {
@@ -5443,16 +5504,67 @@
             showToast(speakerEnabled ? '🔊 Altavoz activado' : '🔈 Altavoz (auricular)');
         });
 
+        // --- Proximity Shield (pantalla negra en llamadas de voz) ---
+        const proximityShield = document.getElementById('call-proximity-shield');
+        let proximityShieldTimer = null;
+        let proximityShieldActive = false;
+        const SHIELD_DELAY = 4000;      // Activar shield después de 4s sin tocar
+        const SHIELD_SHOW_TIME = 6000;  // Mostrar controles por 6s al tocar
+
+        function showProximityShield() {
+            if (!callOverlay.classList.contains('voice-call')) return;
+            if (callOverlay.classList.contains('minimized')) return;
+            proximityShield.classList.add('active');
+            proximityShieldActive = true;
+        }
+
+        function hideProximityShield() {
+            proximityShield.classList.remove('active');
+            proximityShieldActive = false;
+        }
+
+        function resetProximityShieldTimer() {
+            if (proximityShieldTimer) clearTimeout(proximityShieldTimer);
+            if (!callOverlay.classList.contains('voice-call')) return;
+            if (callOverlay.classList.contains('minimized')) return;
+            proximityShieldTimer = setTimeout(showProximityShield, SHIELD_DELAY);
+        }
+
+        // Al tocar el shield: mostrar controles temporalmente
+        proximityShield.addEventListener('click', (e) => {
+            e.stopPropagation();
+            hideProximityShield();
+            resetProximityShieldTimer();
+        });
+        proximityShield.addEventListener('touchend', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            hideProximityShield();
+            resetProximityShieldTimer();
+        });
+
+        // Resetear timer cuando se toca cualquier botón de la llamada
+        callOverlay.addEventListener('click', () => {
+            if (callOverlay.classList.contains('voice-call') && !callOverlay.classList.contains('minimized')) {
+                resetProximityShieldTimer();
+            }
+        });
+
         // Función para crear audio element en llamadas de voz
         function createRemoteAudio(peerId, stream) {
             const audioEl = document.createElement('audio');
             audioEl.autoplay = true;
             audioEl.playsInline = true;
-            audioEl.volume = speakerEnabled ? 1.0 : 0.15;
+            audioEl.volume = 1.0;
             audioEl.srcObject = stream;
             audioEl.id = `remote-audio-${peerId}`;
             document.body.appendChild(audioEl);
             remoteAudioElements[peerId] = audioEl;
+            // Aplicar routing (setSinkId) al crear
+            if (audioEl.setSinkId && typeof audioEl.setSinkId === 'function') {
+                const sinkId = speakerEnabled ? 'default' : 'communications';
+                audioEl.setSinkId(sinkId).catch(() => {});
+            }
             return audioEl;
         }
 
@@ -5647,7 +5759,9 @@
                 speakerBtn.classList.remove('speaker-on');
                 speakerBtn.classList.add('speaker-off');
                 speakerEnabled = false;
+                resetProximityShieldTimer();
             }
+                startAudioRecovery();
 
                 const groupCallsRef = database.ref(`channels/${activeChannel}/groupCalls`);
                 const newCallRef = groupCallsRef.push();
@@ -5790,7 +5904,9 @@
                 speakerBtn.classList.remove('speaker-on');
                 speakerBtn.classList.add('speaker-off');
                 speakerEnabled = false;
+                resetProximityShieldTimer();
             }
+                startAudioRecovery();
 
                 await callRef.child(`participants/${userName}`).set(true);
                 callRef.child(`participants/${userName}`).onDisconnect().remove();
@@ -5944,8 +6060,11 @@
                 const video = document.createElement('video');
                 video.autoplay = true;
                 video.playsInline = true;
-                video.volume = speakerEnabled ? 1.0 : 0.15;
+                video.volume = 1.0;
                 video.srcObject = stream;
+                if (video.setSinkId && typeof video.setSinkId === 'function') {
+                    video.setSinkId(speakerEnabled ? 'default' : 'communications').catch(() => {});
+                }
                 const label = document.createElement('div');
                 label.classList.add('video-label');
                 label.textContent = peerId;
@@ -6026,6 +6145,10 @@
             }
 
             Object.keys(remoteAudioElements).forEach(peerId => removeRemoteAudio(peerId));
+            // Limpiar proximity shield y audio recovery
+            hideProximityShield();
+            if (proximityShieldTimer) { clearTimeout(proximityShieldTimer); proximityShieldTimer = null; }
+            stopAudioRecovery();
             speakerEnabled = false;
             micMuted = false;
             cameraMuted = false;
