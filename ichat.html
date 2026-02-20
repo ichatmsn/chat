@@ -5449,50 +5449,78 @@
         });
 
         // --- Altavoz / Speaker toggle ---
-        // setSinkId: 'default' = altavoz principal, 'communications' = auricular
-        // En móviles no todos los navegadores lo soportan, pero se intenta como best-effort.
+        // ESTRATEGIA FINAL: AudioContext es el ÚNICO canal de audio real.
+        // Los <audio>/<video> elements se mantienen silenciados (volume=0, muted=true)
+        // para que el navegador NO los detecte como "llamada activa" y NO active
+        // el sensor de proximidad que corta/redirige el audio.
+        // AudioContext es inmune al sensor de proximidad → audio NUNCA se para.
+        let callAudioContext = null;
+        let callGainNode = null;
+        let callAudioSources = {}; // peerId → MediaStreamAudioSourceNode
+
+        function getCallAudioContext() {
+            if (!callAudioContext || callAudioContext.state === 'closed') {
+                callAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+                callGainNode = callAudioContext.createGain();
+                callGainNode.gain.value = speakerEnabled ? 1.0 : 0.15;
+                callGainNode.connect(callAudioContext.destination);
+            }
+            if (callAudioContext.state === 'suspended') {
+                callAudioContext.resume();
+            }
+            return { ctx: callAudioContext, gain: callGainNode };
+        }
+
+        function connectStreamToAudioContext(peerId, stream) {
+            try {
+                const { ctx, gain } = getCallAudioContext();
+                // Desconectar source anterior si existe
+                if (callAudioSources[peerId]) {
+                    try { callAudioSources[peerId].disconnect(); } catch(e) {}
+                }
+                const source = ctx.createMediaStreamSource(stream);
+                source.connect(gain);
+                callAudioSources[peerId] = source;
+            } catch(e) {
+                console.log('AudioContext connect error:', e);
+            }
+        }
+
+        function disconnectStreamFromAudioContext(peerId) {
+            if (callAudioSources[peerId]) {
+                try { callAudioSources[peerId].disconnect(); } catch(e) {}
+                delete callAudioSources[peerId];
+            }
+        }
+
+        function closeCallAudioContext() {
+            Object.keys(callAudioSources).forEach(id => {
+                try { callAudioSources[id].disconnect(); } catch(e) {}
+            });
+            callAudioSources = {};
+            if (callAudioContext && callAudioContext.state !== 'closed') {
+                try { callAudioContext.close(); } catch(e) {}
+            }
+            callAudioContext = null;
+            callGainNode = null;
+        }
+
         function applyAudioRouting() {
-            const sinkId = speakerEnabled ? 'default' : 'communications';
-            const vol = speakerEnabled ? 1.0 : 1.0; // Volumen siempre 1.0, el sink controla el destino
-
-            function routeElement(el) {
-                el.volume = vol;
-                el.muted = false;
-                if (el.setSinkId && typeof el.setSinkId === 'function') {
-                    el.setSinkId(sinkId).catch(() => {});
-                }
-                // Recuperar audio si se pausó por cambio de routing del OS
-                if (el.paused && el.srcObject) {
-                    el.play().catch(() => {});
-                }
+            // Controlar volumen vía GainNode (único canal de audio real)
+            const vol = speakerEnabled ? 1.0 : 0.15;
+            if (callGainNode) {
+                callGainNode.gain.value = vol;
             }
-
-            Object.values(remoteAudioElements).forEach(routeElement);
-            callVideoGrid.querySelectorAll('video:not(#local-video)').forEach(routeElement);
-        }
-
-        // Monitorear y recuperar audio que se pausa por interferencia del OS
-        let audioRecoveryInterval = null;
-        function startAudioRecovery() {
-            if (audioRecoveryInterval) return;
-            audioRecoveryInterval = setInterval(() => {
-                Object.values(remoteAudioElements).forEach(el => {
-                    if (el.paused && el.srcObject) {
-                        el.play().catch(() => {});
-                    }
-                });
-                callVideoGrid.querySelectorAll('video:not(#local-video)').forEach(v => {
-                    if (v.paused && v.srcObject) {
-                        v.play().catch(() => {});
-                    }
-                });
-            }, 1500);
-        }
-        function stopAudioRecovery() {
-            if (audioRecoveryInterval) {
-                clearInterval(audioRecoveryInterval);
-                audioRecoveryInterval = null;
-            }
+            // Asegurar que TODOS los <audio>/<video> estén silenciados
+            // para no activar el sensor de proximidad
+            Object.values(remoteAudioElements).forEach(el => {
+                el.volume = 0;
+                el.muted = true;
+            });
+            callVideoGrid.querySelectorAll('video:not(#local-video)').forEach(v => {
+                v.volume = 0;
+                v.muted = true;
+            });
         }
 
         speakerBtn.addEventListener('click', () => {
@@ -5501,7 +5529,7 @@
             speakerBtn.classList.toggle('speaker-off', !speakerEnabled);
             speakerBtn.title = speakerEnabled ? 'Altavoz activado' : 'Altavoz desactivado';
             applyAudioRouting();
-            showToast(speakerEnabled ? '🔊 Altavoz activado' : '🔈 Altavoz (auricular)');
+            showToast(speakerEnabled ? '🔊 Altavoz activado' : '🔈 Volumen bajo');
         });
 
         // --- Proximity Shield (pantalla negra en llamadas de voz) ---
@@ -5551,24 +5579,24 @@
         });
 
         // Función para crear audio element en llamadas de voz
+        // El audio element se mantiene silenciado; AudioContext maneja todo el sonido
         function createRemoteAudio(peerId, stream) {
             const audioEl = document.createElement('audio');
             audioEl.autoplay = true;
             audioEl.playsInline = true;
-            audioEl.volume = 1.0;
+            audioEl.volume = 0;
+            audioEl.muted = true;
             audioEl.srcObject = stream;
             audioEl.id = `remote-audio-${peerId}`;
             document.body.appendChild(audioEl);
             remoteAudioElements[peerId] = audioEl;
-            // Aplicar routing (setSinkId) al crear
-            if (audioEl.setSinkId && typeof audioEl.setSinkId === 'function') {
-                const sinkId = speakerEnabled ? 'default' : 'communications';
-                audioEl.setSinkId(sinkId).catch(() => {});
-            }
+            // Conectar stream a AudioContext (canal de audio real)
+            connectStreamToAudioContext(peerId, stream);
             return audioEl;
         }
 
         function removeRemoteAudio(peerId) {
+            disconnectStreamFromAudioContext(peerId);
             const audioEl = remoteAudioElements[peerId];
             if (audioEl) {
                 audioEl.pause();
@@ -5761,7 +5789,8 @@
                 speakerEnabled = false;
                 resetProximityShieldTimer();
             }
-                startAudioRecovery();
+                // Inicializar AudioContext para la llamada
+                getCallAudioContext();
 
                 const groupCallsRef = database.ref(`channels/${activeChannel}/groupCalls`);
                 const newCallRef = groupCallsRef.push();
@@ -5906,7 +5935,8 @@
                 speakerEnabled = false;
                 resetProximityShieldTimer();
             }
-                startAudioRecovery();
+                // Inicializar AudioContext para la llamada
+                getCallAudioContext();
 
                 await callRef.child(`participants/${userName}`).set(true);
                 callRef.child(`participants/${userName}`).onDisconnect().remove();
@@ -6060,11 +6090,11 @@
                 const video = document.createElement('video');
                 video.autoplay = true;
                 video.playsInline = true;
-                video.volume = 1.0;
+                video.volume = 0;
+                video.muted = true;
                 video.srcObject = stream;
-                if (video.setSinkId && typeof video.setSinkId === 'function') {
-                    video.setSinkId(speakerEnabled ? 'default' : 'communications').catch(() => {});
-                }
+                // Audio del video va por AudioContext
+                connectStreamToAudioContext(peerId, stream);
                 const label = document.createElement('div');
                 label.classList.add('video-label');
                 label.textContent = peerId;
@@ -6082,6 +6112,7 @@
                 removeRemoteAudio(peerId);
                 return;
             }
+            disconnectStreamFromAudioContext(peerId);
             const cell = document.getElementById(`video-cell-${peerId}`);
             if (cell) cell.remove();
             updateVideoGridLayout();
@@ -6145,10 +6176,10 @@
             }
 
             Object.keys(remoteAudioElements).forEach(peerId => removeRemoteAudio(peerId));
-            // Limpiar proximity shield y audio recovery
+            // Limpiar AudioContext, proximity shield
+            closeCallAudioContext();
             hideProximityShield();
             if (proximityShieldTimer) { clearTimeout(proximityShieldTimer); proximityShieldTimer = null; }
-            stopAudioRecovery();
             speakerEnabled = false;
             micMuted = false;
             cameraMuted = false;
